@@ -10,7 +10,7 @@ Es gibt zwei Wege. Nimm **einen** davon, sonst erscheint das Gerät doppelt:
 ## Weg A: Integration „Manometer-Leser“
 
 ### Installieren
-**Über HACS:** HACS → **⋮ → Benutzerdefinierte Repositories** → `https://github.com/DEIN-GITHUB-NAME/manometer-leser`, Typ **Integration** → hinzufügen → „Manometer-Leser“ **herunterladen** → Home Assistant **neu starten**.
+**Über HACS:** HACS → **⋮ → Benutzerdefinierte Repositories** → `https://github.com/dieseltoby124/manometer-cam`, Typ **Integration** → hinzufügen → „Manometer-Leser“ **herunterladen** → Home Assistant **neu starten**.
 
 **Von Hand:** Den Ordner `custom_components/manometer_leser` nach `/config/custom_components/` kopieren (File-Editor- oder Samba-Add-on), neu starten.
 

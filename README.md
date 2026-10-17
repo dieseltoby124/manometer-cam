@@ -1,5 +1,9 @@
 # Manometer-Leser
 
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Integration-03A9F4.svg)](docs/03-home-assistant.md)
+[![ESPHome](https://img.shields.io/badge/ESPHome-ESP32--CAM-000000.svg)](docs/01-esp32-cam.md)
+
 Liest das **analoge Manometer deiner Heizung** mit einer ESP32-CAM ab und macht daraus einen digitalen Druckwert, mit Verlauf, Alarmen und Anbindung an **Home Assistant**, **ioBroker**, **HomeKit** und alles, was MQTT spricht. Am Manometer und an der Heizung selbst wird nichts verändert.
 
 ```
@@ -15,6 +19,20 @@ ESP32-CAM ──Foto──▶ Manometer-Leser ──▶ Weboberfläche (Druck, V
 </p>
 
 *Bilder mit simuliertem Manometer.*
+
+## Home Assistant
+
+Eigene **Integration „Manometer-Leser“**, installierbar über **HACS**:
+
+[![In HACS öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=dieseltoby124&repository=manometer-cam&category=integration)
+
+1. Knopf oben anklicken (oder in HACS: *⋮ → Benutzerdefinierte Repositories* → `https://github.com/dieseltoby124/manometer-cam`, Typ **Integration**)
+2. **Herunterladen**, Home Assistant neu starten
+3. *Einstellungen → Geräte & Dienste → Integration hinzufügen → „Manometer-Leser“* → Adresse des Manometer-Lesers eingeben
+
+Du bekommst das Gerät **„Heizung Manometer“** mit Anlagendruck, Problem-Sensor „Druck außerhalb Normalbereich“, Kamerabild mit erkanntem Zeiger, Knopf „Jetzt messen“ und Diagnosewerten. Alles Weitere inklusive Automationen und **HomeKit**: [docs/03-home-assistant.md](docs/03-home-assistant.md)
+
+> Voraussetzung: Der Manometer-Leser (Ordner `reader/`) läuft bereits, siehe Schnellstart. Die Integration holt die Werte von ihm ab.
 
 ## Funktionen
 
@@ -43,8 +61,8 @@ ESP32-CAM ──Foto──▶ Manometer-Leser ──▶ Weboberfläche (Druck, V
 2. **Manometer-Leser installieren:** im Container
    ```bash
    apt update && apt install -y wget unzip
-   cd /root && wget -O manometer-leser.zip https://github.com/DEIN-GITHUB-NAME/manometer-leser/archive/refs/heads/main.zip
-   unzip -o manometer-leser.zip && bash manometer-leser-main/reader/install.sh
+   cd /root && wget -O manometer-cam.zip https://github.com/dieseltoby124/manometer-cam/archive/refs/heads/main.zip
+   unzip -o manometer-cam.zip && bash manometer-cam-main/reader/install.sh
    ```
    Danach im Browser `http://<Container-IP>:8080` öffnen → [docs/02-manometer-leser.md](docs/02-manometer-leser.md)
 3. **Kalibrieren:** In der Weboberfläche Foto aufnehmen, Achse und Skalenstriche antippen, testen, speichern.

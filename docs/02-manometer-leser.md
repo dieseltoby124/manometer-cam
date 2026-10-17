@@ -26,9 +26,9 @@ systemctl enable ssh && systemctl restart ssh
 
 ```bash
 apt update && apt install -y wget unzip
-cd /root && wget -O manometer-leser.zip https://github.com/DEIN-GITHUB-NAME/manometer-leser/archive/refs/heads/main.zip
-unzip -o manometer-leser.zip
-bash manometer-leser-main/reader/install.sh
+cd /root && wget -O manometer-cam.zip https://github.com/dieseltoby124/manometer-cam/archive/refs/heads/main.zip
+unzip -o manometer-cam.zip
+bash manometer-cam-main/reader/install.sh
 ```
 
 Das Skript installiert Python-Pakete, legt den Dienst `manometer` an und zeigt am Ende die Adresse der Weboberfläche, z. B. `http://192.168.77.20:8080`.

@@ -4,10 +4,10 @@
   "codeowners": [],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/DEIN-GITHUB-NAME/manometer-leser",
+  "documentation": "https://github.com/dieseltoby124/manometer-cam",
   "integration_type": "device",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/DEIN-GITHUB-NAME/manometer-leser/issues",
+  "issue_tracker": "https://github.com/dieseltoby124/manometer-cam/issues",
   "requirements": [],
   "version": "1.0.0"
 }
