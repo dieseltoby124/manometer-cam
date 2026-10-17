@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Heizungsdruck</title>
+<style>
+:root{
+  --bg:#f3f4f1; --card:#ffffff; --ink:#1d2321; --muted:#68716d; --line:#e1e4df;
+  --accent:#0f766e; --accent-ink:#ffffff; --accent-soft:#d9efec;
+  --ok:#15803d; --ok-soft:#dcfce7; --warn:#b45309; --warn-soft:#fef3c7; --bad:#b91c1c; --bad-soft:#fee2e2;
+  --band:rgba(21,128,61,.08); --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.04);
+  --radius:14px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#121614; --card:#1b201e; --ink:#e7ebe8; --muted:#97a19c; --line:#2b322f;
+  --accent:#2dd4bf; --accent-ink:#06201c; --accent-soft:#163a35;
+  --ok:#4ade80; --ok-soft:#14321f; --warn:#fbbf24; --warn-soft:#3a2d0c; --bad:#f87171; --bad-soft:#3d1717;
+  --band:rgba(74,222,128,.07); --shadow:none;
+}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:760px;margin:0 auto;padding:12px 16px 80px}
+header{display:flex;align-items:center;gap:10px;padding:14px 0 6px}
+header h1{font-size:19px;margin:0;font-weight:650;letter-spacing:-.01em}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.bad{background:var(--bad)}
+nav{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;margin:8px 0 14px;
+  position:sticky;top:6px;z-index:5;box-shadow:var(--shadow)}
+nav button{flex:1;border:0;background:none;color:var(--muted);font:inherit;font-weight:600;padding:9px 6px;border-radius:9px;cursor:pointer}
+nav button[aria-selected=true]{background:var(--accent-soft);color:var(--ink)}
+section[hidden]{display:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
+.card h2{font-size:15px;margin:0 0 10px;font-weight:650}
+.muted{color:var(--muted)} .small{font-size:13px}
+.big{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.big .val{font-size:56px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1}
+.big .unit{font-size:22px;color:var(--muted);font-weight:600}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:3px 10px;border-radius:99px;background:var(--line)}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}.chip.warn{background:var(--warn-soft);color:var(--warn)}.chip.bad{background:var(--bad-soft);color:var(--bad)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spread{justify-content:space-between}
+.banner{border-radius:10px;padding:10px 12px;font-size:14px;margin-top:10px}
+.banner.bad{background:var(--bad-soft);color:var(--bad)}.banner.warn{background:var(--warn-soft);color:var(--warn)}
+.banner.info{background:var(--accent-soft)}
+button.btn{font:inherit;font-weight:600;border-radius:10px;padding:10px 16px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;min-height:42px}
+button.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.btn:disabled{opacity:.5;cursor:default}
+button.btn.small{padding:6px 12px;min-height:34px;font-size:14px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{font:inherit;font-size:13px;font-weight:600;border:0;background:none;color:var(--muted);padding:6px 12px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent-soft);color:var(--ink)}
+img.shot{display:block;width:100%;border-radius:10px;background:#0002}
+#chart{width:100%;height:220px;position:relative;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;cursor:crosshair}
+#chart svg{display:block;max-width:100%}
+#chart .tip{position:absolute;left:0;top:0;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:4px 8px;border-radius:6px;white-space:nowrap}
+html,body{overflow-x:hidden}
+.ax{font-size:11px;fill:var(--muted)}
+/* Kalibrierung */
+.steps{counter-reset:s;list-style:none;padding:0;margin:0}
+.steps>li{counter-increment:s;position:relative;padding-left:36px;margin-bottom:14px}
+.steps>li::before{content:counter(s);position:absolute;left:0;top:0;width:26px;height:26px;border-radius:50%;
+  background:var(--line);color:var(--ink);font-weight:700;font-size:13px;display:grid;place-items:center}
+.steps>li.done::before{content:"✓";background:var(--ok-soft);color:var(--ok)}
+.steps>li.done>span{display:none}
+.steps>li.done{margin-bottom:8px}
+.steps>li.active::before{background:var(--accent);color:var(--accent-ink)}
+.steps>li#st5:not(.done)>span{display:none}
+.steps>li.final{background:var(--ok-soft);border-radius:12px;padding:12px 12px 12px 48px;margin:4px 0 0}
+.steps>li.final::before{left:12px;top:12px;background:var(--ok);color:var(--card)}
+.steps>li.final>span{display:block;color:var(--ink)}
+.steps>li.final b{color:var(--ok)}
+.steps b{display:block;margin-bottom:2px}
+.stage{position:relative;user-select:none;-webkit-user-select:none;touch-action:none;border-radius:10px;overflow:hidden;background:#0002;margin:12px 0}
+.stage img{position:absolute;display:block;max-width:none;pointer-events:none}
+.stage svg{position:absolute;inset:0;width:100%;height:100%}
+.stage .empty{padding:60px 20px;text-align:center;color:var(--muted)}
+#loupe{position:absolute;top:8px;left:8px;width:150px;height:150px;border-radius:50%;border:3px solid var(--card);
+  box-shadow:0 4px 18px rgba(0,0,0,.35);pointer-events:none;display:none;background:#000}
+.mode{font-size:14px;font-weight:600;padding:8px 12px;border-radius:10px;background:var(--accent-soft)}
+.pts{list-style:none;padding:0;margin:8px 0 0}
+.pts li{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)}
+.pts .n{width:22px;height:22px;border-radius:50%;background:#f5b400;color:#222;font-size:12px;font-weight:700;display:grid;place-items:center}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 10px;min-height:40px;width:100%}
+input[type=checkbox],input[type=radio]{width:auto;min-height:0}
+.pts input{width:90px}
+label.f{display:block;margin-bottom:12px} label.f span{display:block;font-size:13px;font-weight:600;margin-bottom:4px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+@media (max-width:520px){.grid2{grid-template-columns:1fr}.big .val{font-size:48px}}
+.swatch{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.swatch i{width:22px;height:6px;border-radius:3px;display:block}
+.result{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;margin-top:6px}
+.result .v{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}
+dialog{border:0;border-radius:16px;padding:18px;background:var(--card);color:var(--ink);width:min(340px,92vw);box-shadow:0 10px 40px rgba(0,0,0,.35)}
+dialog::backdrop{background:rgba(0,0,0,.4)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.chips button{font:inherit;font-weight:600;min-width:46px;padding:8px 10px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;
+  font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;z-index:20}
+#toast.show{opacity:1}
+.broker{border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
+.broker>summary{list-style:none;display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;min-height:48px}
+.broker>summary::-webkit-details-marker{display:none}
+.broker .hd{flex:1;min-width:0}
+.broker .hn{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.broker .hs{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.broker .chev{color:var(--muted);transition:transform .15s}
+.broker[open] .chev{transform:rotate(90deg)}
+.broker .bd{padding:0 12px 12px;border-top:1px solid var(--line)}
+.broker .bd label.f{margin:10px 0 0}
+.broker .bd label.f span{font-size:12px}
+.broker .r2{display:grid;grid-template-columns:minmax(0,1fr) 84px;gap:8px}
+.broker .r3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.bdg{font-size:11px;font-weight:600;padding:2px 7px;border-radius:99px;background:var(--accent-soft);white-space:nowrap}
+.tg{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.tg label{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:5px 9px;border:1px solid var(--line);border-radius:99px;cursor:pointer}
+.tg label:has(input:checked){background:var(--accent-soft);border-color:transparent}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<main>
+  <header><span class="dot" id="hdrDot"></span><h1>Heizungsdruck</h1></header>
+  <nav role="tablist">
+    <button role="tab" data-tab="ov" aria-selected="true">Übersicht</button>
+    <button role="tab" data-tab="cal" aria-selected="false">Kalibrieren</button>
+    <button role="tab" data-tab="set" aria-selected="false">Einstellungen</button>
+  </nav>
+
+  <!-- ================= Übersicht ================= -->
+  <section id="tab-ov">
+    <div class="card" id="welcome" hidden>
+      <h2>Willkommen! So geht's los</h2>
+      <ol class="small" style="margin:0 0 12px;padding-left:20px">
+        <li>Unter <b>Kalibrieren</b> ein Foto machen, Achse und Skala antippen, testen, speichern.</li>
+        <li>Fertig – die Werte erscheinen als Sensoren beim Gerät „Heizung Manometer“.</li>
+        <li>Optional: unter <b>Einstellungen</b> Normalbereich, Messintervall und MQTT (z. B. für ioBroker).</li>
+      </ol>
+      <div class="row"><button class="btn primary" data-go="cal">Kalibrieren</button></div>
+    </div>
+
+    <div class="card" id="nowCard">
+      <div class="row spread">
+        <div class="big"><span class="val" id="val">–</span><span class="unit">bar</span></div>
+        <span class="chip" id="stateChip">–</span>
+      </div>
+      <div class="muted small" id="meta" style="margin-top:6px">&nbsp;</div>
+      <div id="errBox"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="measureBtn">Jetzt messen</button>
+        <span class="muted small" id="mqttInfo"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row spread" style="margin-bottom:8px">
+        <h2 style="margin:0">Verlauf</h2>
+        <div class="seg" id="range">
+          <button data-h="24" aria-pressed="true">24 h</button><button data-h="168" aria-pressed="false">7 Tage</button><button data-h="720" aria-pressed="false">30 Tage</button>
+        </div>
+      </div>
+      <div id="chart"></div>
+      <div class="legend"><span><i style="background:var(--band);outline:1px solid var(--ok)"></i>Normalbereich <span id="rangeTxt">1,0–2,5</span> bar</span>
+        <a href="#" id="rangeEdit" style="color:var(--accent)">ändern</a></div>
+    </div>
+
+    <div class="card">
+      <h2>Letztes Kamerabild</h2>
+      <img class="shot" id="lastImg" alt="Letztes ausgewertetes Kamerabild">
+      <div class="legend"><span><i style="background:#00ff00"></i>erkannter Zeiger</span><span><i style="background:#00c8ff"></i>Suchbereich</span><span><i style="background:#ffc800"></i>Skalenpunkte</span></div>
+    </div>
+  </section>
+
+  <!-- ================= Kalibrieren ================= -->
+  <section id="tab-cal" hidden>
+    <div class="card">
+      <ol class="steps" id="steps">
+        <li id="st1"><b>Kamera ausrichten</b><span class="small muted">Manometer mittig im Bild, Kamera möglichst gerade davor, Bild scharf. Mit der Live-Vorschau kannst du beim Ausrichten zusehen. Steht das Bild schief oder auf dem Kopf, einfach drehen.</span>
+          <div class="row" style="margin-top:8px">
+            <button class="btn primary small" id="snapBtn">Foto aufnehmen</button>
+            <label class="row small" style="gap:6px"><input type="checkbox" id="liveChk"> Live-Vorschau</label>
+          </div>
+          <div class="row" style="margin-top:8px;gap:6px">
+            <span class="small muted">Bild drehen:</span>
+            <button class="btn small" id="rotL" aria-label="90° nach links drehen">↺ 90°</button>
+            <button class="btn small" id="rotR" aria-label="90° nach rechts drehen">↻ 90°</button>
+            <span class="small muted" id="rotInfo"></span>
+          </div>
+        </li>
+        <li id="st2"><b>Mitte der Zeigerachse antippen</b><span class="small muted">Gedrückt halten zeigt eine Lupe – so triffst du genau. Punkte lassen sich nachträglich verschieben.</span></li>
+        <li id="st3"><b>Skalenstriche antippen</b><span class="small muted">Mindestens zwei, z.&nbsp;B. bei 0 und 4 bar. Ein dritter in der Mitte macht es genauer. Danach den Wert eingeben.</span></li>
+        <li id="st4"><b>Testen und speichern</b><span class="small muted">Prüfen, ob die grüne Linie auf dem Zeiger liegt und der Wert mit deiner Ablesung übereinstimmt.</span></li>
+        <li id="st5"><b>Fertig – alles eingerichtet</b><span class="small">Die Kalibrierung ist gespeichert, der Manometer-Leser misst jetzt automatisch. Änderst du hier etwas, einfach neu testen und speichern.
+          <span class="row" style="margin-top:10px"><button class="btn small" data-go="ov" id="toOverview">Zur Übersicht</button></span></span></li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <div class="row spread">
+        <div class="mode" id="modeBox">Erst ein Foto aufnehmen</div>
+        <div class="row" style="gap:6px"><button class="btn small" id="zoomBtn" hidden>🔍 Vergrößern</button>
+        <button class="btn small" id="centerAgainBtn" hidden>Mitte neu setzen</button></div>
+      </div>
+      <div class="stage" id="stage">
+        <div class="empty" id="stageEmpty">Noch kein Foto. Tippe oben auf „Foto aufnehmen“.</div>
+        <img id="calImg" alt="" hidden>
+        <svg id="ov" hidden></svg>
+        <canvas id="loupe" width="150" height="150"></canvas>
+      </div>
+      <ul class="pts" id="ptList"></ul>
+
+      <div style="margin-top:14px">
+        <span class="small" style="font-weight:600">Farbe des Zeigers</span>
+        <div class="row" style="margin-top:6px">
+          <label class="swatch"><input type="radio" name="needle" value="dark" checked><i style="background:#222"></i>Schwarz/dunkel</label>
+          <label class="swatch"><input type="radio" name="needle" value="light"><i style="background:#fff;outline:1px solid #888"></i>Weiß/hell</label>
+          <label class="swatch"><input type="radio" name="needle" value="red"><i style="background:#d22"></i>Rot</label>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:16px">
+        <button class="btn" id="testBtn" disabled>Testen</button>
+        <button class="btn primary" id="saveBtn" disabled>Speichern</button>
+      </div>
+      <div id="testRes"></div>
+    </div>
+  </section>
+
+  <!-- ================= Einstellungen ================= -->
+  <section id="tab-set" hidden>
+    <form id="setForm" autocomplete="off">
+      <div class="card">
+        <h2>Kamera</h2>
+        <p class="small" style="margin:0 0 4px">Kamera: <code id="camEnt">–</code></p>
+        <p class="small" style="margin:0 0 6px">LED: <code id="ledEnt">–</code></p>
+        <p class="small muted" style="margin:0 0 4px">Ändern unter <i>Einstellungen → Geräte &amp; Dienste → Manometer-Leser → Konfigurieren</i>.</p>
+        <div class="grid2" style="margin-top:12px">
+          <label class="f"><span>Messen alle … Minuten</span><input name="interval_min" type="number" min="1" max="1440"></label>
+          <label class="f"><span>LED-Helligkeit bei Messung (%)</span><input name="camera.led_brightness" type="number" min="1" max="100"></label>
+        </div>
+        <label class="row small" style="gap:8px"><input type="checkbox" name="camera.led_control"> LED nur während Messung und Vorschau einschalten</label>
+        <div class="small" id="ledState" style="margin-top:6px"></div>
+      </div>
+      <div class="card" id="rangeCard">
+        <h2>Normalbereich</h2>
+        <p class="small muted" style="margin:0 0 10px">Der grüne Bereich im Verlauf. Liegt der Druck darunter oder darüber, zeigt die Übersicht „Druck niedrig“ bzw. „Druck hoch“.</p>
+        <div class="grid2" style="grid-template-columns:1fr 1fr">
+          <label class="f"><span>Untergrenze (bar)</span><input name="range.low" type="number" step="0.1" min="0" max="10" inputmode="decimal"></label>
+          <label class="f"><span>Obergrenze (bar)</span><input name="range.high" type="number" step="0.1" min="0" max="10" inputmode="decimal"></label>
+        </div>
+        <p class="small muted" style="margin:0">Richtwert: 1,0–2,5 bar. Den passenden Fülldruck für deine Anlage nennt dir dein Heizungsbauer.</p>
+      </div>
+      <div class="card">
+        <h2>MQTT (z. B. für ioBroker)</h2>
+        <p class="small muted" style="margin:0 0 10px">Home Assistant hat die Werte bereits als Sensoren. Zusätzlich kann jede Messung über die MQTT-Integration von Home Assistant verschickt werden.</p>
+        <label class="row small" style="gap:8px"><input type="checkbox" name="mqtt.enabled"> Werte zusätzlich per MQTT senden</label>
+        <label class="f" style="margin-top:10px"><span>Topic-Präfix</span><input name="mqtt.topic_prefix" placeholder="heizung/manometer"></label>
+        <div class="small" id="mqttHint"></div>
+        <details class="small" style="margin-top:8px"><summary class="muted">Was wird gesendet?</summary>
+          <ul style="margin:8px 0 0;padding-left:18px">
+            <li><code>druck</code>, <code>guete</code>, <code>zeitstempel</code> – Einzelwerte, in ioBroker direkt Datenpunkte</li>
+            <li><code>state</code> – JSON, <code>error</code> – „ok“ oder Fehlermeldung, <code>status</code></li>
+            <li>alle mit „retain“; Bilder werden nie gesendet</li>
+          </ul></details>
+      </div>
+      <button class="btn primary" type="submit">Einstellungen speichern</button>
+    </form>
+
+    <div class="card" style="margin-top:12px">
+      <h2>Info</h2>
+      <p class="small muted" style="margin:0">Version <b id="curVersion">–</b> · Updates über HACS · Einstellungen, Kalibrierung und Verlauf liegen unter <code>/config/manometer_leser</code>.</p>
+    </div>
+  </section>
+</main>
+
+<dialog id="valDlg">
+  <form method="dialog">
+    <b>Welcher Wert steht an diesem Strich?</b>
+    <div class="chips" id="valChips"></div>
+    <label class="f"><span>oder eingeben (bar)</span><input id="valInput" type="number" step="0.1" inputmode="decimal"></label>
+    <div class="row spread"><button type="button" class="btn" onclick="this.closest('dialog').close('cancel')">Abbrechen</button><button class="btn primary" value="ok" id="valOk">Übernehmen</button></div>
+  </form>
+</dialog>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const fmt = (v, d = 2) => Number(v).toLocaleString('de-DE', {minimumFractionDigits: d, maximumFractionDigits: d});
+let LOW = 1.0, HIGH = 2.5;
+const BASE = '/api/manometer_leser';
+const url = p => BASE + (p.startsWith('/api/') ? p.slice(4) : p);
+const hfetch = (p, init) => window.mlFetch(url(p), init || {});
+async function loadImg(el, path) {                       // Bilder brauchen die Anmeldung -> als Blob laden
+  try { const r = await hfetch(path); if (!r.ok) return false;
+    const u = URL.createObjectURL(await r.blob()); if (el._u) URL.revokeObjectURL(el._u); el._u = u;
+    await new Promise(ok => { el.onload = ok; el.onerror = ok; el.src = u; }); return true; } catch { return false; }
+}
+async function api(path, body) {
+  const r = await hfetch(path, body === undefined ? {} : {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 3200); }
+function ago(ts) {
+  const s = Math.round(Date.now() / 1000 - ts);
+  if (s < 60) return 'gerade eben'; if (s < 3600) return `vor ${Math.round(s / 60)} Min.`;
+  if (s < 86400) return `vor ${Math.round(s / 3600)} Std.`; return new Date(ts * 1000).toLocaleString('de-DE');
+}
+
+/* ---------- Tabs ---------- */
+function showTab(id) {
+  $$('nav button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === id));
+  ['ov', 'cal', 'set'].forEach(t => $('#tab-' + t).hidden = t !== id);
+  if (id === 'cal') loadCalibration(); else setLive(false);
+  if (id === 'ov') refresh();
+  if (id === 'set') loadSettings();
+}
+$$('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+$$('[data-go]').forEach(b => b.onclick = () => showTab(b.dataset.go));
+
+/* ---------- Übersicht ---------- */
+let range = 24, lastImgTime = 0;
+async function refresh() {
+  let s; try { s = await api('/api/status'); } catch { return; }
+  if (s.range && (s.range.low !== LOW || s.range.high !== HIGH)) {
+    LOW = s.range.low; HIGH = s.range.high; drawChart();
+  }
+  $('#rangeTxt').textContent = `${fmt(LOW, 1)}–${fmt(HIGH, 1)}`;
+  $('#welcome').hidden = s.calibrated;
+  const L = s.last || {}, chip = $('#stateChip'), dot = $('#hdrDot');
+  let cls = '', label = '–';
+  if (L.value != null) {
+    $('#val').textContent = fmt(L.value);
+    if (L.value < LOW) { cls = 'warn'; label = 'Druck niedrig'; } else if (L.value > HIGH) { cls = 'warn'; label = 'Druck hoch'; } else { cls = 'ok'; label = 'Normal'; }
+  } else $('#val').textContent = '–';
+  if (L.error) { cls = 'bad'; label = s.calibrated ? 'Fehler' : 'Nicht kalibriert'; }
+  chip.className = 'chip ' + cls; chip.textContent = label; dot.className = 'dot ' + cls;
+  const parts = [];
+  if (L.time) parts.push((L.error ? 'Letzter Versuch ' : 'Gemessen ') + ago(L.time));
+  if (L.confidence != null && !L.error) parts.push(`Güte ${Math.round(L.confidence)} %`);
+  if (L.offset && (Math.abs(L.offset[0]) > 2 || Math.abs(L.offset[1]) > 2)) parts.push(`Kamera nachgeführt (${Math.round(Math.hypot(...L.offset))} px)`);
+  if (s.measuring) parts.push('misst gerade …');
+  $('#meta').textContent = parts.join(' · ') || ' ';
+  $('#errBox').innerHTML = L.error ? `<div class="banner bad">${esc(L.error)}${L.stale && L.value != null ? '<br><span class="small">Angezeigt wird der letzte gültige Wert.</span>' : ''}</div>` : '';
+  $('#mqttInfo').textContent = s.mqtt && s.mqtt.enabled ? 'MQTT: an' : '';
+  if (s.has_last_image && L.time !== lastImgTime) { lastImgTime = L.time; loadImg($('#lastImg'), '/img/last.jpg'); }
+  $('#lastImg').closest('.card').hidden = !s.has_last_image;
+  $('#measureBtn').disabled = s.measuring || !s.calibrated;
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+$('#measureBtn').onclick = async () => { await api('/api/measure', {}); toast('Messung gestartet'); setTimeout(refresh, 800); setTimeout(() => { refresh(); loadChart(); }, 9000); };
+$$('#range button').forEach(b => b.onclick = () => { range = +b.dataset.h; $$('#range button').forEach(x => x.setAttribute('aria-pressed', x === b)); loadChart(); });
+
+let chartData = [], chartView = null;
+async function loadChart() { try { chartData = await api('/api/history?hours=' + range); } catch { chartData = []; } drawChart(); }
+function drawChart() {
+  const el = $('#chart'), W = Math.floor(el.getBoundingClientRect().width), H = 220, P = {l: 38, r: 10, t: 10, b: 24};
+  chartView = null;
+  if (W < 80) return;                          // Reiter gerade nicht sichtbar -> wird beim Einblenden gezeichnet
+  if (!chartData.length) { el.innerHTML = `<div class="muted small" style="padding:80px 0;text-align:center">Noch keine Messwerte im Zeitraum</div>`; return; }
+  const now = Date.now() / 1000, t0 = now - range * 3600;
+  const vs = chartData.map(p => p[1]);
+  let lo = Math.min(0.5, LOW - 0.5, ...vs), hi = Math.max(3.0, HIGH + 0.5, ...vs); lo = Math.floor(lo * 2) / 2; hi = Math.ceil(hi * 2) / 2;
+  const x = t => P.l + (t - t0) / (now - t0) * (W - P.l - P.r), y = v => P.t + (hi - v) / (hi - lo) * (H - P.t - P.b);
+  let g = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
+  g += `<rect x="${P.l}" y="${y(HIGH)}" width="${W - P.l - P.r}" height="${y(LOW) - y(HIGH)}" fill="var(--band)"/>`;
+  for (let v = lo; v <= hi + 1e-9; v += 0.5) g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text class="ax" x="${P.l - 6}" y="${y(v) + 4}" text-anchor="end">${fmt(v, 1)}</text>`;
+  const ticks = Math.max(2, Math.min(range <= 24 ? 6 : 7, Math.floor((W - P.l - P.r) / 72)));
+  for (let i = 0; i <= ticks; i++) { const t = t0 + i * (now - t0) / ticks, d = new Date(t * 1000);
+    const lab = range <= 24 ? d.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'}) : d.toLocaleDateString('de-DE', {day: '2-digit', month: '2-digit'});
+    g += `<text class="ax" x="${x(t)}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : i === ticks ? 'end' : 'middle'}">${lab}</text>`; }
+  // Linie mit Lücken, wenn länger als 3 Messintervalle nichts kam
+  let path = '', prev = null; const gap = Math.max(1800, range * 3600 / 200);
+  for (const [t, v] of chartData) { path += (prev === null || t - prev > gap ? 'M' : 'L') + x(t).toFixed(1) + ',' + y(v).toFixed(1); prev = t; }
+  g += `<path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const [lt, lv] = chartData[chartData.length - 1]; g += `<circle cx="${x(lt)}" cy="${y(lv)}" r="3.5" fill="var(--accent)"/>`;
+  g += `<line id="cx" y1="${P.t}" y2="${H - P.b}" stroke="var(--muted)" stroke-dasharray="3 3" visibility="hidden"/>`;
+  g += `<circle id="cdot" r="5" fill="var(--accent)" stroke="var(--card)" stroke-width="2" visibility="hidden"/></svg><div class="tip" hidden></div>`;
+  el.innerHTML = g;
+  chartView = {W, H, P, t0, now, x, y};
+}
+
+// Wert unter dem Finger/der Maus anzeigen; Kästchen bleibt immer innerhalb der Grafik
+function chartShow(clientX) {
+  const v = chartView, el = $('#chart'); if (!v) return;
+  const px = clientX - el.getBoundingClientRect().left;
+  const t = v.t0 + (px - v.P.l) / (v.W - v.P.l - v.P.r) * (v.now - v.t0);
+  let best = chartData[0];
+  for (const p of chartData) if (Math.abs(p[0] - t) < Math.abs(best[0] - t)) best = p;
+  const bx = v.x(best[0]), by = v.y(best[1]);
+  const cx = el.querySelector('#cx'), dot = el.querySelector('#cdot'), tip = el.querySelector('.tip');
+  cx.setAttribute('x1', bx); cx.setAttribute('x2', bx); cx.setAttribute('visibility', 'visible');
+  dot.setAttribute('cx', bx); dot.setAttribute('cy', by); dot.setAttribute('visibility', 'visible');
+  tip.textContent = `${fmt(best[1])} bar · ${new Date(best[0] * 1000).toLocaleString('de-DE', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}`;
+  tip.hidden = false;
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  const left = Math.min(Math.max(0, bx - tw / 2), v.W - tw);
+  const top = by - th - 10 >= 0 ? by - th - 10 : by + 12;
+  tip.style.transform = `translate(${left}px, ${top}px)`;
+}
+function chartHide() {
+  const el = $('#chart'); if (!chartView) return;
+  el.querySelector('.tip').hidden = true;
+  el.querySelector('#cx').setAttribute('visibility', 'hidden');
+  el.querySelector('#cdot').setAttribute('visibility', 'hidden');
+}
+(() => {
+  const el = $('#chart');
+  // Maus: Wert folgt dem Zeiger
+  el.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') chartShow(e.clientX); });
+  el.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') chartHide(); });
+  // Touch: waagerecht wischen = Verlauf abfahren, senkrecht wischen = Seite scrollen, Tippen = Wert zeigen
+  let sx = 0, sy = 0, mode = null;
+  el.addEventListener('touchstart', e => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; mode = null; }, {passive: true});
+  el.addEventListener('touchmove', e => {
+    const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (!mode && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) mode = Math.abs(dx) > Math.abs(dy) ? 'scrub' : 'scroll';
+    if (mode === 'scrub') { e.preventDefault(); chartShow(t.clientX); }
+  }, {passive: false});
+  el.addEventListener('touchend', e => { if (!mode && e.changedTouches[0]) chartShow(e.changedTouches[0].clientX); });
+  document.addEventListener('touchstart', e => { if (!el.contains(e.target)) chartHide(); }, {passive: true});
+  // Neu zeichnen, sobald sich die Breite ändert (Reiter eingeblendet, Handy gedreht, Fenster geändert)
+  let lastW = 0;
+  const onResize = () => { const w = Math.floor(el.getBoundingClientRect().width); if (w !== lastW) { lastW = w; drawChart(); } };
+  if ('ResizeObserver' in window) new ResizeObserver(onResize).observe(el); else window.addEventListener('resize', onResize);
+})();
+
+/* ---------- Kalibrieren ---------- */
+const cal = {center: null, scale: [], W: 0, H: 0, mode: 'center', hasImg: false, dirty: false, zoom: false, view: null};
+const img = $('#calImg'), ov = $('#ov'), stage = $('#stage'), loupe = $('#loupe'), lctx = loupe.getContext('2d');
+async function loadCalibration() {
+  const c = await api('/api/calibration');
+  const g = c.gauge || {};
+  if (!cal.dirty) {
+    cal.center = g.center || null; cal.scale = (g.scale || []).map(p => ({x: p.point[0], y: p.point[1], v: p.value}));
+    $$('input[name=needle]').forEach(r => r.checked = r.value === (g.needle || 'dark'));
+    cal.mode = cal.center ? 'scale' : 'center';
+    cal.saved = !!(g.center && (g.scale || []).length >= 2);
+  }
+  cal.rot = c.rotate || 0; $('#rotInfo').textContent = cal.rot ? `(${cal.rot}°)` : '';
+  if (c.image_size) setImage(c.image_size);
+  updateCal();
+}
+async function rotate(step) {
+  setLive(false);
+  const pts = cal.center ? {center: cal.center, scale: cal.scale.map(p => ({point: [p.x, p.y], value: p.v}))} : null;
+  try {
+    const r = await api('/api/rotate', {rotate: ((cal.rot || 0) + step + 360) % 360, points: pts});
+    cal.rot = r.rotate; $('#rotInfo').textContent = cal.rot ? `(${cal.rot}°)` : '';
+    if (r.points && r.points.center) { cal.center = r.points.center; cal.scale = r.points.scale.map(p => ({x: p.point[0], y: p.point[1], v: p.value})); }
+    cal.zoomRect = null; $('#testRes').innerHTML = '';
+    if (r.image_size) setImage(r.image_size);
+    updateCal(); toast(cal.center ? 'Gedreht – Punkte wurden mitgedreht' : 'Gedreht');
+  } catch (e) { toast(e.message); }
+}
+$('#rotL').onclick = () => rotate(-90);
+$('#rotR').onclick = () => rotate(90);
+function setImage(size) {
+  [cal.W, cal.H] = size; cal.hasImg = true;
+  loadImg(img, '/img/calib.jpg'); img.hidden = false; ov.hidden = false; $('#stageEmpty').hidden = true;
+  applyView();
+}
+// Sichtbarer Ausschnitt [x0, y0, w, h] in Bildpixeln
+function view() {
+  if (!cal.zoom || !cal.center) return [0, 0, cal.W, cal.H];
+  if (cal.zoomRect) return cal.zoomRect;                 // beim Zoomen festgehalten -> springt nicht beim Ziehen
+  const R = radius(), half = Math.min(R > 0 ? R * 1.45 : Math.min(cal.W, cal.H) / 4, cal.W / 2, cal.H / 2);
+  const x0 = Math.min(Math.max(0, cal.center[0] - half), cal.W - 2 * half), y0 = Math.min(Math.max(0, cal.center[1] - half), cal.H - 2 * half);
+  return cal.zoomRect = [x0, y0, 2 * half, 2 * half];
+}
+function applyView() {
+  if (!cal.hasImg) return;
+  const [x0, y0, w, h] = cal.view = view();
+  stage.style.aspectRatio = `${w} / ${h}`;
+  img.style.width = (cal.W / w * 100) + '%'; img.style.left = (-x0 / w * 100) + '%'; img.style.top = (-y0 / h * 100) + '%';
+  ov.setAttribute('viewBox', `${x0} ${y0} ${w} ${h}`);
+  $('#zoomBtn').textContent = cal.zoom ? '↔ Ganzes Bild' : '🔍 Vergrößern';
+}
+$('#zoomBtn').onclick = () => { cal.zoom = !cal.zoom; cal.zoomRect = null; updateCal(); };
+async function snap(quiet) {
+  try { const r = await api('/api/snapshot', {}); setImage(r.image_size); if (!quiet) toast('Foto aufgenommen'); }
+  catch (e) { toast(e.message); setLive(false); }
+  updateCal();
+}
+$('#snapBtn').onclick = () => snap();
+let liveTimer = null;
+function setLive(on) {
+  $('#liveChk').checked = on; clearTimeout(liveTimer); liveTimer = null;
+  if (on) (async function tick() { await snap(true); if ($('#liveChk').checked) liveTimer = setTimeout(tick, 1500); })();
+}
+$('#liveChk').onchange = e => setLive(e.target.checked);
+$$('input[name=needle]').forEach(r => r.onchange = () => { cal.dirty = true; updateCal(); });
+
+function radius() {
+  if (!cal.center || !cal.scale.length) return 0;
+  return cal.scale.reduce((s, p) => s + Math.hypot(p.x - cal.center[0], p.y - cal.center[1]), 0) / cal.scale.length;
+}
+function updateCal() {
+  const nPts = cal.scale.length, hasC = !!cal.center;
+  applyView();
+  const sw = Math.max((cal.view || [0, 0, cal.W])[2], 200) / 300;   // Strichstärke relativ zum Ausschnitt
+  let s = '';
+  const R = radius();
+  if (hasC && R > 0) {
+    const [cx, cy] = cal.center;
+    s += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#00c8ff" stroke-width="${1.5 * sw}" stroke-dasharray="${5 * sw} ${4 * sw}"/>`;
+    s += `<circle cx="${cx}" cy="${cy}" r="${R * 0.25}" fill="none" stroke="#00c8ff" stroke-opacity=".5" stroke-width="${sw}"/>`;
+    s += `<circle cx="${cx}" cy="${cy}" r="${R * 0.85}" fill="none" stroke="#00c8ff" stroke-opacity=".5" stroke-width="${sw}"/>`;
+  }
+  cal.scale.forEach((p, i) => {
+    if (hasC) s += `<line x1="${cal.center[0]}" y1="${cal.center[1]}" x2="${p.x}" y2="${p.y}" stroke="#ffc800" stroke-opacity=".6" stroke-width="${sw}"/>`;
+    s += `<circle cx="${p.x}" cy="${p.y}" r="${6 * sw}" fill="#ffc800" stroke="#000" stroke-width="${sw}"/>`;
+    s += `<text x="${p.x + 9 * sw}" y="${p.y - 7 * sw}" font-size="${12 * sw}" font-weight="700" fill="#ffc800" stroke="#000" stroke-width="${3 * sw}" paint-order="stroke">${p.v != null ? fmt(p.v, 1) : '?'}</text>`;
+  });
+  if (hasC) { const [cx, cy] = cal.center, a = 10 * sw;
+    s += `<path d="M${cx - a},${cy}H${cx + a}M${cx},${cy - a}V${cy + a}" stroke="#000" stroke-width="${4 * sw}"/><path d="M${cx - a},${cy}H${cx + a}M${cx},${cy - a}V${cy + a}" stroke="#ff2d55" stroke-width="${2 * sw}"/>`; }
+  if (cal.ghost) s += `<circle cx="${cal.ghost[0]}" cy="${cal.ghost[1]}" r="${6 * sw}" fill="none" stroke="#fff" stroke-width="${2 * sw}"/>`;
+  ov.innerHTML = s;
+
+  $('#modeBox').textContent = !cal.hasImg ? 'Erst ein Foto aufnehmen'
+    : cal.mode === 'center' ? '👉 Tippe auf die Mitte der Zeigerachse'
+    : nPts < 2 ? `👉 Tippe auf einen Skalenstrich (${nPts}/2)` : '✓ Fertig – du kannst weitere Striche antippen oder testen';
+  $('#centerAgainBtn').hidden = !hasC || cal.mode === 'center';
+  $('#zoomBtn').hidden = !hasC || !cal.hasImg;
+  $('#ptList').innerHTML = cal.scale.map((p, i) => `<li><span class="n">${i + 1}</span><span class="small muted" style="flex:1">Skalenstrich</span>
+      <input type="number" step="0.1" inputmode="decimal" value="${p.v ?? ''}" data-i="${i}"> bar
+      <button class="btn small" data-del="${i}" aria-label="Punkt entfernen">✕</button></li>`).join('');
+  $$('#ptList input').forEach(inp => inp.onchange = () => { cal.scale[+inp.dataset.i].v = inp.value === '' ? null : parseFloat(inp.value); cal.dirty = true; updateCal(); });
+  $$('#ptList [data-del]').forEach(b => b.onclick = () => { cal.scale.splice(+b.dataset.del, 1); cal.dirty = true; updateCal(); });
+
+  const ready = hasC && cal.scale.filter(p => p.v != null && !isNaN(p.v)).length >= 2;
+  $('#testBtn').disabled = !ready || !cal.hasImg; $('#saveBtn').disabled = !ready || !cal.hasImg;
+  const saved = !!cal.saved && !cal.dirty;
+  const st = [cal.hasImg, hasC, nPts >= 2, saved, saved];
+  const active = st.indexOf(false);
+  ['st1', 'st2', 'st3', 'st4', 'st5'].forEach((id, i) => { const li = $('#' + id); li.className = st[i] ? 'done' : i === active ? 'active' : ''; });
+  if (saved && st.every(Boolean)) $('#st5').className = 'done final';
+}
+
+function toImg(e) { const r = ov.getBoundingClientRect(), [x0, y0, w, h] = cal.view || [0, 0, cal.W, cal.H];
+  return [x0 + (e.clientX - r.left) * w / r.width, y0 + (e.clientY - r.top) * h / r.height]; }
+function drawLoupe(p, e) {
+  if (!img.complete || !img.naturalWidth) return;
+  const Z = 4, S = 150, src = S / Z;
+  lctx.imageSmoothingEnabled = false; lctx.fillStyle = '#000'; lctx.fillRect(0, 0, S, S);
+  lctx.drawImage(img, p[0] - src / 2, p[1] - src / 2, src, src, 0, 0, S, S);
+  lctx.strokeStyle = '#ff2d55'; lctx.lineWidth = 1.5; lctx.beginPath();
+  lctx.moveTo(S / 2, S / 2 - 18); lctx.lineTo(S / 2, S / 2 - 5); lctx.moveTo(S / 2, S / 2 + 5); lctx.lineTo(S / 2, S / 2 + 18);
+  lctx.moveTo(S / 2 - 18, S / 2); lctx.lineTo(S / 2 - 5, S / 2); lctx.moveTo(S / 2 + 5, S / 2); lctx.lineTo(S / 2 + 18, S / 2); lctx.stroke();
+  const r = stage.getBoundingClientRect(), left = e.clientX - r.left < r.width / 2;   // Lupe auf der anderen Seite
+  loupe.style.left = left ? 'auto' : '8px'; loupe.style.right = left ? '8px' : 'auto';
+  loupe.style.display = 'block';
+}
+let drag = null;
+stage.addEventListener('pointerdown', e => {
+  if (!cal.hasImg) return;
+  e.preventDefault(); stage.setPointerCapture(e.pointerId); setLive(false);
+  const p = toImg(e), r = ov.getBoundingClientRect(), tol = 18 * (cal.view || [0, 0, cal.W])[2] / r.width;
+  let hit = null;
+  if (cal.center && Math.hypot(p[0] - cal.center[0], p[1] - cal.center[1]) < tol) hit = {kind: 'c'};
+  cal.scale.forEach((q, i) => { if (!hit && Math.hypot(p[0] - q.x, p[1] - q.y) < tol) hit = {kind: 's', i}; });
+  // Beim Ziehen bleibt der Versatz zwischen Finger und Punkt erhalten -> Finger verdeckt den Punkt nicht
+  if (hit) { const ref = hit.kind === 'c' ? cal.center : [cal.scale[hit.i].x, cal.scale[hit.i].y]; hit.dx = ref[0] - p[0]; hit.dy = ref[1] - p[1]; drag = hit; }
+  else { drag = {kind: 'new'}; cal.ghost = p; }
+  drawLoupe(drag.kind === 'new' ? p : [p[0] + drag.dx, p[1] + drag.dy], e); updateCal();
+});
+stage.addEventListener('pointermove', e => {
+  if (!cal.hasImg) return;
+  let p = toImg(e);
+  if (drag) {
+    if (drag.kind === 'new') cal.ghost = p;
+    else { p = [p[0] + drag.dx, p[1] + drag.dy]; if (drag.kind === 'c') cal.center = p; else { cal.scale[drag.i].x = p[0]; cal.scale[drag.i].y = p[1]; } cal.dirty = true; }
+    updateCal(); drawLoupe(p, e);
+  } else if (e.pointerType === 'mouse') drawLoupe(p, e);
+});
+async function endDrag(e) {
+  if (!drag) return; loupe.style.display = 'none';
+  const d = drag; drag = null;
+  if (d.kind === 'new' && cal.ghost) {
+    const p = cal.ghost; cal.ghost = null;
+    if (cal.mode === 'center') { cal.center = p; cal.mode = 'scale'; cal.dirty = true; updateCal(); }
+    else { const v = await askValue(); if (v != null) { cal.scale.push({x: p[0], y: p[1], v}); cal.dirty = true; } updateCal(); }
+  }
+}
+stage.addEventListener('pointerup', endDrag);
+stage.addEventListener('pointercancel', () => { drag = null; cal.ghost = null; loupe.style.display = 'none'; updateCal(); });
+stage.addEventListener('pointerleave', e => { if (!drag) loupe.style.display = 'none'; });
+$('#centerAgainBtn').onclick = () => { cal.mode = 'center'; cal.zoom = false; cal.zoomRect = null; updateCal(); };
+
+function askValue() {
+  return new Promise(res => {
+    const dlg = $('#valDlg'), used = new Set(cal.scale.map(p => p.v));
+    const sugg = [0, 0.5, 1, 1.5, 2, 2.5, 3, 4, 6].filter(v => !used.has(v));
+    $('#valChips').innerHTML = sugg.map(v => `<button type="button" data-v="${v}">${fmt(v, v % 1 ? 1 : 0)}</button>`).join('');
+    $('#valInput').value = '';
+    $$('#valChips button').forEach(b => b.onclick = () => { dlg.returnValue = 'chip:' + b.dataset.v; dlg.close(); });
+    dlg.onclose = () => {
+      const rv = dlg.returnValue || '';
+      if (rv.startsWith('chip:')) res(parseFloat(rv.slice(5)));
+      else if (rv === 'ok' && $('#valInput').value !== '') res(parseFloat($('#valInput').value));
+      else res(null);
+    };
+    dlg.returnValue = ''; dlg.showModal();
+  });
+}
+function calPayload() {
+  return {center: cal.center.map(v => Math.round(v * 10) / 10),
+    scale: cal.scale.filter(p => p.v != null && !isNaN(p.v)).map(p => ({point: [Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10], value: p.v})),
+    needle: $('input[name=needle]:checked').value};
+}
+$('#testBtn').onclick = async () => {
+  try {
+    const r = await api('/api/calibration/test', calPayload());
+    const good = r.confidence >= 50;
+    $('#testRes').innerHTML = `<div class="banner ${good ? 'info' : 'warn'}" style="margin-top:14px">
+      <div class="result"><span class="v">${fmt(r.value)} bar</span><span class="small">Güte ${Math.round(r.confidence)} %</span></div>
+      <div class="small" style="margin:4px 0 10px">${good ? 'Liegt die grüne Linie auf dem Zeiger und passt der Wert zu deiner Ablesung? Dann speichern.'
+        : 'Erkennung unsicher. Stimmt die Zeigerfarbe (schwarz, weiß oder rot)? Liegt die Mitte genau auf der Achse? Spiegelt das Glas?'}</div>
+      ${r.suggest ? `<div class="banner warn" style="margin:0 0 10px">Tipp: Mit der Zeigerfarbe „${({dark: 'Schwarz/dunkel', light: 'Weiß/hell', red: 'Rot'})[r.suggest.needle]}“ ist die Erkennung deutlich sicherer (Güte ${Math.round(r.suggest.confidence)} %).
+        <div style="margin-top:8px"><button class="btn small" id="useSuggest" data-n="${r.suggest.needle}">Übernehmen und neu testen</button></div></div>` : ''}
+      <img class="shot" src="${r.image}" alt="Testergebnis"></div>`;
+    const us = $('#useSuggest');
+    if (us) us.onclick = () => { $$('input[name=needle]').forEach(x => x.checked = x.value === us.dataset.n); cal.dirty = true; $('#testBtn').click(); };
+    $('#st4').className = 'active';
+  } catch (e) { toast(e.message); }
+};
+$('#saveBtn').onclick = async () => {
+  try { await api('/api/calibration/save', calPayload()); cal.dirty = false; cal.saved = true; toast('Gespeichert – erste Messung läuft'); $('#testRes').innerHTML = '';
+    updateCal(); $('#steps').scrollIntoView({behavior: 'smooth', block: 'start'});
+    setTimeout(() => { refresh(); loadChart(); }, 9000); }
+  catch (e) { toast(e.message); }
+};
+
+/* ---------- Einstellungen ---------- */
+const form = $('#setForm');
+async function loadSettings() {
+  const c = await api('/api/settings');
+  for (const el of form.elements) {
+    if (!el.name) continue;
+    const v = el.name.split('.').reduce((o, k) => o?.[k], c);
+    if (el.type === 'checkbox') el.checked = !!v; else el.value = v ?? '';
+  }
+  $('#camEnt').textContent = c.camera_entity || '–';
+  $('#ledEnt').textContent = c.light_entity || 'keine (LED wird nicht geschaltet)';
+  const s = await api('/api/status');
+  $('#ledState').innerHTML = s.led && s.led.error ? `<span class="chip bad">${esc(s.led.error)}</span>` : '';
+  $('#mqttHint').innerHTML = c.mqtt.available ? '' : '<span class="chip warn">In Home Assistant ist keine MQTT-Integration eingerichtet</span>';
+  $('#curVersion').textContent = s.version || '–';
+}
+form.onsubmit = async e => {
+  e.preventDefault();
+  const body = {camera: {}, range: {}, mqtt: {}};
+  for (const el of form.elements) {
+    if (!el.name) continue;
+    const [a, b] = el.name.split('.'), v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value.trim();
+    if (b) body[a][b] = v; else body[a] = v;
+  }
+  try { await api('/api/settings', body); toast('Gespeichert'); refresh(); setTimeout(loadSettings, 1500); } catch (er) { toast(er.message); }
+};
+$('#rangeEdit').onclick = e => { e.preventDefault(); showTab('set'); setTimeout(() => { $('#rangeCard').scrollIntoView({behavior: 'smooth', block: 'start'}); $('input[name="range.low"]').focus({preventScroll: true}); }, 300); };
+
+window.mlStart = () => { refresh(); loadChart(); setInterval(refresh, 10000); setInterval(loadChart, 120000); };
+</script>
+</body>
+</html>

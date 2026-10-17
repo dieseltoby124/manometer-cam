@@ -3,11 +3,24 @@
   "name": "Manometer-Leser",
   "codeowners": [],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": [
+    "http",
+    "camera",
+    "panel_custom",
+    "frontend"
+  ],
   "documentation": "https://github.com/dieseltoby124/manometer-cam",
   "integration_type": "device",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/dieseltoby124/manometer-cam/issues",
-  "requirements": [],
-  "version": "1.0.0"
+  "requirements": [
+    "numpy>=1.24",
+    "Pillow>=10.0"
+  ],
+  "version": "2.0.0",
+  "after_dependencies": [
+    "mqtt",
+    "light"
+  ],
+  "single_config_entry": true
 }

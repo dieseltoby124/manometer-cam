@@ -2,8 +2,9 @@
 
 ioBroker bekommt die Werte per **MQTT**. Der Manometer-Leser sendet dafür einfache Einzelwerte, die ioBroker direkt als Zahlen-Datenpunkte übernimmt.
 
-## Manometer-Leser
-*Einstellungen → MQTT → Verbindung hinzufügen:* Server, Benutzer und Passwort deines Brokers eintragen und **„ioBroker“** anhaken. Läuft Home Assistant über denselben Broker, zusätzlich „Home Assistant“ anhaken, falls du dort nicht die Integration nutzt.
+## Werte senden
+- **Mit Home Assistant:** In der Seitenleiste *Manometer → Einstellungen → MQTT* „Werte zusätzlich per MQTT senden“ anhaken. Gesendet wird über die MQTT-Integration von Home Assistant, also an denselben Broker, den Home Assistant nutzt.
+- **Ohne Home Assistant** (eigenständiger Server): *Einstellungen → MQTT → Verbindung hinzufügen* und **„ioBroker“** anhaken.
 
 ## ioBroker: MQTT-Adapter
 

@@ -1,6 +1,6 @@
 # 1. ESP32-CAM einrichten
 
-Die Kamera läuft mit **ESPHome**. Sie liefert Einzelbilder an den Manometer-Leser und stellt eine kleine Statusseite bereit, über die der Manometer-Leser die LED schaltet.
+Die Kamera läuft mit **ESPHome** und wird in Home Assistant eingebunden. Die Integration „Manometer-Leser“ holt sich dort das Bild und schaltet die LED.
 
 ## Hardware
 
@@ -36,17 +36,17 @@ Steckt die Kamera direkt am Rechner, auf dem ESPHome läuft, geht auch **Install
 
 - Im ESPHome-Log erscheinen `WiFi Connected` mit **IP-Adresse** und am Ende `Boot seems successful`.
 - `http://<Kamera-IP>:8081/` zeigt ein Standbild.
-- `http://<Kamera-IP>/` zeigt die Statusseite.
 - Im Router der Kamera eine **feste IP** geben.
-- Home Assistant findet die Kamera meist selbst. Beim Hinzufügen fragt es nach dem Schlüssel, das ist der `api_key`.
+- **In Home Assistant hinzufügen:** Home Assistant findet die Kamera meist selbst (*Einstellungen → Geräte & Dienste → Entdeckt*). Beim Hinzufügen fragt es nach dem Schlüssel, das ist der `api_key`. Danach hat das Gerät „Manometer Cam“ eine **Kamera** und ein **Licht „Beleuchtung“**. Beide wählst du später in der Integration aus.
+- Weiter: [03-home-assistant.md](03-home-assistant.md)
 
 ## Montage
 
 - Manometer **mittig** im Bild, Kamera möglichst **gerade** davor, ca. 10–20 cm Abstand.
 - Unscharf aus der Nähe? Das Objektiv lässt sich vorsichtig drehen und damit scharf stellen.
 - Die Kamera muss danach **fest** sitzen. Kleine Verschiebungen gleicht der Manometer-Leser aus, große nicht.
-- Steht das Bild durch die Einbaulage schief oder auf dem Kopf, drehst du es im Manometer-Leser beim Kalibrieren (↺ / ↻).
-- Die LED ist normalerweise aus und geht nur während einer Messung kurz an. Spiegelt das Glas, die Helligkeit im Manometer-Leser unter *Einstellungen → Kamera* reduzieren oder die Kamera minimal schräg stellen.
+- Steht das Bild durch die Einbaulage schief oder auf dem Kopf, drehst du es beim Kalibrieren (↺ / ↻).
+- Die LED ist normalerweise aus und geht nur während einer Messung kurz an. Spiegelt das Glas, die LED-Helligkeit in den Einstellungen (Seitenleiste „Manometer“) reduzieren oder die Kamera minimal schräg stellen.
 
 ## Wichtige Details der Konfiguration
 
@@ -54,8 +54,8 @@ Steckt die Kamera direkt am Rechner, auf dem ESPHome läuft, geht auch **Install
 |---|---|
 | `psram:` (`mode: quad`, `speed: 80MHz`) | Neuere ESPHome-Versionen brauchen das ausdrücklich, sonst: „This option requires component psram“ |
 | `i2c_pins:` unter `esp32_camera` | ESPHome warnt „deprecated“. Die neue Variante mit `i2c:` + `i2c_id` lieferte bei ESPHome 2026.9 keine Bilder („Got invalid frame from camera“). Die Warnung ist harmlos |
-| `web_server:` auf Port 80 | **Nicht entfernen**: Darüber schaltet der Manometer-Leser die LED |
-| Licht-Name `Beleuchtung` | Der Manometer-Leser schaltet die LED unter diesem Namen |
+| Licht `Beleuchtung` | Wird von der Integration nur zur Messung eingeschaltet |
+| `esp32_camera_web_server` (8081) und `web_server` (80) | Nur für den eigenständigen Server ohne Home Assistant nötig. Schaden aber nicht, Port 8081 ist praktisch zum Ausrichten im Browser |
 | `restore_mode: ALWAYS_OFF` | LED nach einem Neustart aus |
 | Warnungen zu GPIO0/GPIO5 | Hinweis auf „Strapping-Pins“, bei der ESP32-CAM normal und harmlos |
 

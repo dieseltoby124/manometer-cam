@@ -1,41 +1,55 @@
 # 3. Home Assistant
 
-Es gibt zwei Wege. Nimm **einen** davon, sonst erscheint das Gerät doppelt:
+Die Integration **„Manometer-Leser“** erledigt alles in Home Assistant: Sie holt die Bilder von der ESP32-CAM, schaltet die LED, erkennt den Zeiger, stellt die Sensoren bereit und bringt die Oberfläche zum Kalibrieren als Eintrag **„Manometer“** in der Seitenleiste mit.
 
-| | Integration (empfohlen) | MQTT |
-|---|---|---|
-| Einrichtung | über HACS, dann *Integration hinzufügen* | MQTT-Broker nötig, Gerät erscheint automatisch |
-| Inhalt | Druck, Güte, letzte Messung, Fehler, **Problem-Sensor Normalbereich**, **Kamerabild**, **Knopf „Jetzt messen“** | Druck, Güte, Fehler |
+## Voraussetzungen
 
-## Weg A: Integration „Manometer-Leser“
+- Home Assistant **2025.1** oder neuer, mit [HACS](https://hacs.xyz)
+- Die ESP32-CAM ist in Home Assistant eingebunden (ESPHome-Integration) → [01-esp32-cam.md](01-esp32-cam.md). Du solltest beim Gerät „Manometer Cam“ eine **Kamera** und ein **Licht „Beleuchtung“** sehen.
 
-### Installieren
-**Über HACS:** HACS → **⋮ → Benutzerdefinierte Repositories** → `https://github.com/dieseltoby124/manometer-cam`, Typ **Integration** → hinzufügen → „Manometer-Leser“ **herunterladen** → Home Assistant **neu starten**.
+## Installieren
 
-**Von Hand:** Den Ordner `custom_components/manometer_leser` nach `/config/custom_components/` kopieren (File-Editor- oder Samba-Add-on), neu starten.
+**Über HACS:**
 
-### Einrichten
-*Einstellungen → Geräte & Dienste → Integration hinzufügen → „Manometer-Leser“*
-- **Adresse:** z. B. `192.168.77.20`. Port 8080 wird ergänzt.
-- **Passwort:** nur, wenn im Manometer-Leser ein Zugriffsschutz gesetzt ist. Wird es später geändert, fragt Home Assistant nach dem neuen.
+[![In HACS öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=dieseltoby124&repository=manometer-cam&category=integration)
 
-### Entitäten (Gerät „Heizung Manometer“)
+oder HACS → **⋮ → Benutzerdefinierte Repositories** → `https://github.com/dieseltoby124/manometer-cam`, Typ **Integration** → „Manometer-Leser“ **herunterladen** → Home Assistant **neu starten**.
+
+**Von Hand:** Den Ordner `custom_components/manometer_leser` nach `/config/custom_components/` kopieren und neu starten.
+
+## Einrichten
+
+1. *Einstellungen → Geräte & Dienste → Integration hinzufügen → „Manometer-Leser“*
+2. **Kamera** auswählen (z. B. `camera.manometer_cam_manometer`) und **LED** (z. B. `light.manometer_cam_beleuchtung`). Beides ist meist schon vorausgewählt.
+3. In der Seitenleiste **„Manometer“** öffnen → **Kalibrieren**:
+   1. **Foto aufnehmen.** Mit **Live-Vorschau** die Kamera ausrichten, bei Bedarf mit **↺ / ↻** drehen.
+   2. **Mitte der Zeigerachse** antippen. Gedrückt halten zeigt eine Lupe.
+   3. Mindestens zwei **Skalenstriche** antippen, z. B. 0 und 4 bar, und den Wert wählen. Ein dritter macht es genauer.
+   4. **Zeigerfarbe** wählen: Schwarz, **Weiß/hell** (für dunkle Zifferblätter) oder Rot. Dann **Testen**: Die grüne Linie muss auf dem Zeiger liegen. Passt eine andere Farbe besser, schlägt die Seite sie vor. Dann **Speichern**.
+   5. Schritt 5 zeigt **„Fertig – alles eingerichtet“**.
+
+<img src="img/kalibrieren-schritte.png" width="300" alt="Kalibrierschritte">
+
+Kamera oder LED später ändern: *Geräte & Dienste → Manometer-Leser → Konfigurieren*.
+
+### Einstellungen in der Seitenleiste
+- **Messen alle … Minuten** (Standard 5), **LED-Helligkeit**, „LED nur während Messung und Vorschau“
+- **Normalbereich**: grüner Bereich im Verlauf und Grenze für den Problem-Sensor
+- **MQTT** (optional), siehe unten
+
+Gespeichert wird alles unter `/config/manometer_leser/` und ist damit in den Home-Assistant-Backups enthalten.
+
+## Entitäten (Gerät „Heizung Manometer“)
 
 | Entität | Beispiel-ID |
 |---|---|
 | Anlagendruck (bar) | `sensor.heizung_manometer_anlagendruck` |
 | Druck außerhalb Normalbereich (Problem) | `binary_sensor.heizung_manometer_druck_ausserhalb_normalbereich` |
 | Jetzt messen | `button.heizung_manometer_jetzt_messen` |
-| Letztes Bild | `camera.heizung_manometer_letztes_bild` |
+| Letztes Bild (mit erkanntem Zeiger) | `camera.heizung_manometer_letztes_bild` |
 | Erkennungsgüte, Letzte Messung, Letzter Fehler, Messung gestört | Diagnose |
 
-Die IDs können bei dir leicht abweichen, sie stehen beim Gerät. Der **Anlagendruck** wird „nicht verfügbar“, wenn länger als 3 Messintervalle kein gültiger Wert kam. Ein veralteter Wert zeigt also nie fälschlich „alles ok“.
-
-> Sendet der Manometer-Leser zusätzlich per MQTT an Home Assistant, in seinen MQTT-Einstellungen das Häkchen **„Home Assistant“** entfernen und das alte MQTT-Gerät löschen.
-
-## Weg B: MQTT
-
-Im Manometer-Leser unter *Einstellungen → MQTT* eine Verbindung zum Broker anlegen und **„Home Assistant“** anhaken. Das Gerät „Heizung Manometer“ erscheint dann unter *MQTT*. Details: [05-mqtt.md](05-mqtt.md).
+Die IDs können bei dir leicht abweichen, sie stehen beim Gerät. Der **Anlagendruck** wird „nicht verfügbar“, wenn länger als 3 Messintervalle kein gültiger Wert kam.
 
 ## Benachrichtigungen
 
@@ -53,7 +67,7 @@ automation:
           title: "Heizung"
           message: "Anlagendruck {{ states('sensor.heizung_manometer_anlagendruck') }} bar – außerhalb des Normalbereichs."
 
-  - alias: "Manometer-Leser liefert keine Werte"
+  - alias: "Manometer liefert keine Werte"
     trigger:
       - platform: state
         entity_id: sensor.heizung_manometer_anlagendruck
@@ -62,10 +76,8 @@ automation:
     action:
       - service: notify.notify
         data:
-          message: "Manometer-Leser liefert seit 1 h keine Werte – Weboberfläche prüfen."
+          message: "Manometer liefert seit 1 h keine Werte – Kamera und Seitenleiste „Manometer“ prüfen."
 ```
-
-Beim MQTT-Weg gibt es den Problem-Sensor nicht. Dort stattdessen auf `numeric_state` mit `below: 1.0` / `above: 2.5` beim Anlagendruck auslösen.
 
 ### Schleichenden Druckverlust erkennen
 
@@ -83,6 +95,10 @@ sensor:
 ```
 
 Fällt der Wert z. B. unter −0,3 bar, verliert die Anlage Wasser. Warmes Wasser hat mehr Druck als kaltes (meist 0,2–0,5 bar Unterschied), deshalb Werte zur gleichen Tageszeit vergleichen.
+
+## MQTT für ioBroker & Co. (optional)
+
+Voraussetzung: Die **MQTT-Integration** ist in Home Assistant eingerichtet, z. B. mit dem Mosquitto-Add-on oder einem eigenen Broker. Dann in der Seitenleiste *Manometer → Einstellungen → MQTT* **„Werte zusätzlich per MQTT senden“** anhaken. Topics: [05-mqtt.md](05-mqtt.md), ioBroker: [04-iobroker.md](04-iobroker.md).
 
 ## HomeKit (über die HomeKit-Bridge)
 
@@ -120,4 +136,15 @@ template:
         state: "{{ not has_value('sensor.heizung_manometer_anlagendruck') }}"
 ```
 
-Dann in der **HomeKit-Bridge** nur diese vier Entitäten freigeben. In der Home-App einen eigenen Raum wie „Heizungsraum“ anlegen, sonst fließt der „Temperatur“-Wert in den Raum-Durchschnitt ein.
+In der **HomeKit-Bridge** nur diese vier Entitäten freigeben. In der Home-App einen eigenen Raum wie „Heizungsraum“ anlegen, sonst fließt die „Temperatur“ in den Raum-Durchschnitt ein.
+
+## Fehlersuche
+
+| Problem | Lösung |
+|---|---|
+| „Kamera nicht erreichbar“ | Ist die ESP32-CAM in Home Assistant online? Kamerabild beim Gerät „Manometer Cam“ prüfen |
+| „Zeiger nicht sicher erkannt“ | Zeigerfarbe richtig? Spiegelung → LED-Helligkeit senken. Ggf. neu kalibrieren |
+| „Manometer im Bild nicht wiedergefunden“ | Kamera stark verrutscht/verdeckt → ausrichten, neu kalibrieren |
+| „LED nicht schaltbar“ | Licht-Entität unter *Konfigurieren* prüfen |
+| Panel „Manometer“ fehlt | Home Assistant nach der Installation neu starten; die Seitenleiste ist nur für Administratoren sichtbar |
+| Umstieg von Version 1 (externer Server) | Alte Integration entfernen, neu hinzufügen, einmal neu kalibrieren |

@@ -1,33 +1,38 @@
-"""Regelmäßiges Abfragen des Manometer-Lesers."""
+"""Messintervall: der Coordinator löst die Messungen aus und verteilt den Status an die Entitäten."""
 from __future__ import annotations
 
 import logging
 import time
+from datetime import timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .api import ManometerApi, ManometerAuthError, ManometerError
-from .const import DOMAIN, SCAN_INTERVAL
+from .const import DOMAIN
+from .core import ManometerCore
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class ManometerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, api: ManometerApi) -> None:
-        super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=SCAN_INTERVAL, config_entry=entry)
-        self.api = api
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, core: ManometerCore) -> None:
+        super().__init__(hass, _LOGGER, name=DOMAIN, config_entry=entry,
+                         update_interval=timedelta(seconds=core.interval_s))
+        self.core = core
+        core.listeners.append(self._on_core_change)
 
     async def _async_update_data(self) -> dict[str, Any]:
-        try:
-            return await self.api.status()
-        except ManometerAuthError as err:
-            raise ConfigEntryAuthFailed(str(err)) from err
-        except ManometerError as err:
-            raise UpdateFailed(str(err)) from err
+        """Eine Messung durchführen. Fehler landen im Status, nicht als Ausnahme."""
+        return await self.core.async_measure()
+
+    def _on_core_change(self) -> None:
+        """Kalibrierung oder Einstellungen geändert: Intervall anpassen, Entitäten aktualisieren."""
+        new = timedelta(seconds=self.core.interval_s)
+        if new != self.update_interval:
+            self.update_interval = new
+        self.async_set_updated_data(self.core.status())
 
 
 # ---- Hilfsfunktionen, die die Rohdaten auswerten (ohne Home-Assistant-Abhängigkeit testbar)

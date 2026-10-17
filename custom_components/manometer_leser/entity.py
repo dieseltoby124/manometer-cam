@@ -4,7 +4,7 @@ from __future__ import annotations
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, PANEL_URL, VERSION
 from .coordinator import ManometerCoordinator
 
 
@@ -20,7 +20,7 @@ class ManometerEntity(CoordinatorEntity[ManometerCoordinator]):
             identifiers={(DOMAIN, base)},
             name="Heizung Manometer",
             manufacturer="DIY",
-            model="ESP32-CAM + Manometer-Leser",
-            sw_version=(coordinator.data or {}).get("version"),
-            configuration_url=coordinator.api.url,
+            model="ESP32-CAM + Bilderkennung",
+            sw_version=VERSION,
+            configuration_url=f"homeassistant://{PANEL_URL}",
         )

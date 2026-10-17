@@ -1,7 +1,8 @@
 # ESPHome-Konfiguration für ESP32-CAM (AI-Thinker) vor dem Heizungsmanometer
 #
-# Liefert Einzelbilder unter http://<IP>:8081/ (Snapshot-Modus) und eine Statusseite unter http://<IP>/.
-# Die Blitz-LED schaltet der Manometer-Leser nur während der Messung ein.
+# Mit Home Assistant: Die Integration „Manometer-Leser“ holt die Bilder über die Kamera-Entität und schaltet
+# die Blitz-LED („Beleuchtung“) nur während der Messung ein.
+# Einzelbild-Server (Port 8081) und Statusseite (Port 80) braucht nur der eigenständige Server ohne Home Assistant.
 #
 # Anleitung: docs/01-esp32-cam.md
 
@@ -61,16 +62,16 @@ esp32_camera:
   # aec_mode: MANUAL
   # aec_value: 300
 
-# Einzelbild-Endpunkt für den Manometer-Leser: http://<IP>:8081/
+# Einzelbild: http://<IP>:8081/ – praktisch zum Ausrichten im Browser, nötig für den eigenständigen Server
 esp32_camera_web_server:
   - port: 8081
     mode: snapshot
 
-# Statusseite der Kamera: http://<IP>/ – darüber schaltet der Manometer-Leser auch die LED (nicht entfernen!)
+# Statusseite: http://<IP>/ – der eigenständige Server schaltet darüber die LED
 web_server:
   port: 80
 
-# --- Beleuchtung: Blitz-LED an GPIO4, wird nur zur Messung eingeschaltet ---
+# --- Beleuchtung: Blitz-LED an GPIO4, wird nur zur Messung eingeschaltet (Name „Beleuchtung“ beibehalten) ---
 output:
   - platform: ledc
     id: led_pwm
@@ -82,7 +83,7 @@ light:
     id: led
     name: Beleuchtung
     output: led_pwm
-    restore_mode: ALWAYS_OFF   # nach Neustart aus; der Manometer-Leser schaltet sie bei Bedarf ein
+    restore_mode: ALWAYS_OFF   # nach Neustart aus; wird nur zur Messung eingeschaltet
     default_transition_length: 0s
 
 sensor:

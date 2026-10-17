@@ -2,29 +2,37 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect Manometer-Leser",
-        "description": "Address of the Manometer-Leser web interface, e.g. 192.168.77.20 or http://192.168.77.20:8080. Only enter a password if access protection is enabled there.",
+        "title": "Set up Manometer-Leser",
+        "description": "Select the camera of the ESP32-CAM (ESPHome) and, if available, its light (flash LED). Then calibrate in the sidebar under “Manometer”.",
         "data": {
-          "url": "Address",
-          "password": "Password (optional)"
-        }
-      },
-      "reauth_confirm": {
-        "title": "Re-enter password",
-        "description": "The Manometer-Leser rejected the stored password. Please enter the current password.",
-        "data": {
-          "password": "Password"
+          "camera_entity": "Camera",
+          "light_entity": "LED (light entity, optional)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Cannot connect. Check the address and that the Manometer-Leser is running.",
-      "invalid_auth": "Wrong password.",
-      "unknown": "Unexpected error, see the log."
+      "camera_missing": "Please select an existing camera entity.",
+      "light_missing": "This light entity does not exist."
     },
     "abort": {
-      "already_configured": "This Manometer-Leser is already configured.",
-      "reauth_successful": "Password updated."
+      "already_configured": "Manometer-Leser is already configured.",
+      "single_instance_allowed": "Manometer-Leser is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Camera and LED",
+        "description": "Change camera or LED. Recalibrate if needed.",
+        "data": {
+          "camera_entity": "Camera",
+          "light_entity": "LED (light entity, optional)"
+        }
+      }
+    },
+    "error": {
+      "camera_missing": "Please select an existing camera entity.",
+      "light_missing": "This light entity does not exist."
     }
   }
 }

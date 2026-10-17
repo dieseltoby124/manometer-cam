@@ -1,69 +1,79 @@
-"""Einrichtung über die Oberfläche: Adresse und ggf. Passwort des Manometer-Lesers."""
+"""Einrichtung: Kamera-Entität (ESP32-CAM) und optional die Licht-Entität der LED auswählen."""
 from __future__ import annotations
 
-import logging
-from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import selector
 
-from .api import ManometerApi, ManometerAuthError, ManometerError, normalize_url
-from .const import CONF_PASSWORD, CONF_URL, DOMAIN
+from .const import CONF_CAMERA, CONF_LIGHT, DOMAIN
 
-_LOGGER = logging.getLogger(__name__)
+
+def _guess(hass: HomeAssistant, domain: str, words: tuple[str, ...]) -> str | None:
+    ids = hass.states.async_entity_ids(domain)
+    for w in words:
+        for eid in ids:
+            if w in eid:
+                return eid
+    return None
+
+
+def _schema(hass: HomeAssistant, camera: str | None, light: str | None) -> vol.Schema:
+    camera = camera or _guess(hass, "camera", ("manometer",))
+    light = light or _guess(hass, "light", ("manometer", "beleuchtung"))
+    return vol.Schema({
+        vol.Required(CONF_CAMERA, description={"suggested_value": camera}):
+            selector.EntitySelector(selector.EntitySelectorConfig(domain="camera")),
+        vol.Optional(CONF_LIGHT, description={"suggested_value": light}):
+            selector.EntitySelector(selector.EntitySelectorConfig(domain="light")),
+    })
+
+
+def _validate(hass: HomeAssistant, data: dict) -> dict[str, str]:
+    errors: dict[str, str] = {}
+    if not data.get(CONF_CAMERA) or hass.states.get(data[CONF_CAMERA]) is None:
+        errors[CONF_CAMERA] = "camera_missing"
+    if data.get(CONF_LIGHT) and hass.states.get(data[CONF_LIGHT]) is None:
+        errors[CONF_LIGHT] = "light_missing"
+    return errors
 
 
 class ManometerConfigFlow(ConfigFlow, domain=DOMAIN):
-    VERSION = 1
+    VERSION = 2
 
-    async def _check(self, url: str, password: str | None) -> tuple[dict | None, str | None]:
-        api = ManometerApi(async_get_clientsession(self.hass), url, password or None)
-        try:
-            return await api.status(), None
-        except ManometerAuthError:
-            return None, "invalid_auth"
-        except ManometerError:
-            return None, "cannot_connect"
-        except Exception:  # noqa: BLE001
-            _LOGGER.exception("Unerwarteter Fehler beim Verbinden")
-            return None, "unknown"
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        return ManometerOptionsFlow()
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
+        await self.async_set_unique_id(DOMAIN)
+        self._abort_if_unique_id_configured()
         errors: dict[str, str] = {}
         if user_input is not None:
-            url = normalize_url(user_input[CONF_URL])
-            password = user_input.get(CONF_PASSWORD) or ""
-            status, err = await self._check(url, password)
-            if err:
-                errors["base"] = err
-            else:
-                await self.async_set_unique_id(status.get("id") or url)
-                self._abort_if_unique_id_configured(updates={CONF_URL: url, CONF_PASSWORD: password})
-                return self.async_create_entry(title="Heizung Manometer",
-                                               data={CONF_URL: url, CONF_PASSWORD: password})
-        schema = vol.Schema({
-            vol.Required(CONF_URL, default=(user_input or {}).get(CONF_URL, "")): str,
-            vol.Optional(CONF_PASSWORD, default=""): str,
-        })
-        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
+            errors = _validate(self.hass, user_input)
+            if not errors:
+                return self.async_create_entry(title="Heizung Manometer", data={
+                    CONF_CAMERA: user_input[CONF_CAMERA], CONF_LIGHT: user_input.get(CONF_LIGHT) or None})
+        cur = user_input or {}
+        return self.async_show_form(step_id="user", errors=errors,
+                                    data_schema=_schema(self.hass, cur.get(CONF_CAMERA), cur.get(CONF_LIGHT)))
 
-    # Passwort wurde im Manometer-Leser geändert -> Home Assistant fragt neu nach
-    async def async_step_reauth(self, entry_data: Mapping[str, Any]):
-        return await self.async_step_reauth_confirm()
 
-    async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None):
+class ManometerOptionsFlow(OptionsFlow):
+    """Kamera oder LED später ändern (Einstellungen → Geräte & Dienste → Manometer-Leser → Konfigurieren)."""
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None):
         errors: dict[str, str] = {}
-        entry = self._get_reauth_entry()
         if user_input is not None:
-            password = user_input.get(CONF_PASSWORD) or ""
-            _, err = await self._check(entry.data[CONF_URL], password)
-            if err:
-                errors["base"] = err
-            else:
-                return self.async_update_reload_and_abort(entry, data_updates={CONF_PASSWORD: password})
-        return self.async_show_form(step_id="reauth_confirm",
-                                    data_schema=vol.Schema({vol.Optional(CONF_PASSWORD, default=""): str}),
-                                    errors=errors)
+            errors = _validate(self.hass, user_input)
+            if not errors:
+                return self.async_create_entry(data={
+                    CONF_CAMERA: user_input[CONF_CAMERA], CONF_LIGHT: user_input.get(CONF_LIGHT) or None})
+        entry = self.config_entry
+        cam = entry.options.get(CONF_CAMERA, entry.data.get(CONF_CAMERA))
+        light = entry.options.get(CONF_LIGHT, entry.data.get(CONF_LIGHT))
+        return self.async_show_form(step_id="init", errors=errors, data_schema=_schema(self.hass, cam, light))

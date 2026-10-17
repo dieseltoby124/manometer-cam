@@ -22,4 +22,4 @@ class ManometerCamera(ManometerEntity, Camera):
         self.content_type = "image/jpeg"
 
     async def async_camera_image(self, width: int | None = None, height: int | None = None) -> bytes | None:
-        return await self.coordinator.api.last_image()
+        return self.coordinator.core.last_jpg

@@ -1,6 +1,8 @@
 # 5. MQTT
 
-Unter *Einstellungen → MQTT* legst du eine oder mehrere **Verbindungen** an, eine pro MQTT-Broker. Bei jeder wählst du, **für wen** gesendet wird, auch mehreres gleichzeitig:
+**Mit Home Assistant:** In der Seitenleiste *Manometer → Einstellungen → MQTT* „Werte zusätzlich per MQTT senden“ anhaken. Gesendet wird über die MQTT-Integration von Home Assistant (Topics unten, ohne Discovery – in Home Assistant gibt es die Werte ja schon als Entitäten).
+
+**Eigenständiger Server (ohne Home Assistant):** Unter *Einstellungen → MQTT* legst du eine oder mehrere **Verbindungen** an, eine pro MQTT-Broker. Bei jeder wählst du, **für wen** gesendet wird, auch mehreres gleichzeitig:
 
 | Ziel | Was gesendet wird |
 |---|---|
