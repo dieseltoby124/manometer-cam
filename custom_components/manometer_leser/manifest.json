@@ -1,0 +1,13 @@
+{
+  "domain": "manometer_leser",
+  "name": "Manometer-Leser",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/DEIN-GITHUB-NAME/manometer-leser",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/DEIN-GITHUB-NAME/manometer-leser/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}

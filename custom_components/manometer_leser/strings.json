@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect Manometer-Leser",
+        "description": "Address of the Manometer-Leser web interface, e.g. 192.168.77.20 or http://192.168.77.20:8080. Only enter a password if access protection is enabled there.",
+        "data": {
+          "url": "Address",
+          "password": "Password (optional)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-enter password",
+        "description": "The Manometer-Leser rejected the stored password. Please enter the current password.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect. Check the address and that the Manometer-Leser is running.",
+      "invalid_auth": "Wrong password.",
+      "unknown": "Unexpected error, see the log."
+    },
+    "abort": {
+      "already_configured": "This Manometer-Leser is already configured.",
+      "reauth_successful": "Password updated."
+    }
+  }
+}
