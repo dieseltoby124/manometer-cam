@@ -1,6 +1,6 @@
 """Konstanten für die Manometer-Leser-Integration."""
 DOMAIN = "manometer_leser"
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 
 CONF_CAMERA = "camera_entity"
 CONF_LIGHT = "light_entity"
@@ -19,5 +19,14 @@ DEFAULT_SETTINGS = {
     "camera": {"led_control": True, "led_brightness": 15, "rotate": 0},
     "range": {"low": 1.0, "high": 2.5},
     "mqtt": {"enabled": False, "topic_prefix": "heizung/manometer"},
+    "homekit": {"enabled": False},
     "gauge": {},
+}
+
+# HomeKit-Sensoren (Druck als „Temperatur“, Alarme als Wassermelder)
+HOMEKIT_ALARM_DELAY_S = 15 * 60                    # Druck so lange außerhalb, bevor der Wassermelder auslöst
+HOMEKIT_OUTAGE_S = 60 * 60                         # so lange kein gültiger Wert → „Messung ausgefallen“
+HOMEKIT_KEYS = {                                   # unique_id-Schlüssel je Plattform (zum Aufräumen beim Abschalten)
+    "sensor": ["homekit_druck"],
+    "binary_sensor": ["homekit_zu_niedrig", "homekit_zu_hoch", "homekit_ausgefallen"],
 }

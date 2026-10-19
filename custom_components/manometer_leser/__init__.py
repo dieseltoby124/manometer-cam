@@ -12,9 +12,10 @@ from pathlib import Path
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import CONF_CAMERA, CONF_LIGHT, DOMAIN, PANEL_URL, STATIC_URL, VERSION
+from .const import CONF_CAMERA, CONF_LIGHT, DOMAIN, HOMEKIT_KEYS, PANEL_URL, STATIC_URL, VERSION
 from .coordinator import ManometerCoordinator
 from .core import ManometerCore
 from .http_api import ManometerApiView
@@ -56,6 +57,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = ManometerCoordinator(hass, entry, core)
     hass.data.setdefault(DOMAIN, {}).setdefault("entries", {})[entry.entry_id] = {"core": core, "coordinator": coordinator}
     entry.runtime_data = coordinator
+    core.reload_cb = lambda: hass.config_entries.async_schedule_reload(entry.entry_id)
+    if not core.homekit_enabled:
+        _remove_homekit_entities(hass, entry)
 
     # erste Messung im Hintergrund, damit der Start von Home Assistant nicht wartet
     coordinator.async_set_updated_data(core.status())
@@ -66,6 +70,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await _async_setup_frontend(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+def _remove_homekit_entities(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """HomeKit-Sensoren abgeschaltet: ihre Einträge aus der Entitäten-Registry entfernen."""
+    reg = er.async_get(hass)
+    base = entry.unique_id or entry.entry_id
+    for platform, keys in HOMEKIT_KEYS.items():
+        for key in keys:
+            entity_id = reg.async_get_entity_id(platform, DOMAIN, f"{base}_{key}")
+            if entity_id:
+                reg.async_remove(entity_id)
 
 
 async def _async_reload(hass: HomeAssistant, entry: ConfigEntry) -> None:

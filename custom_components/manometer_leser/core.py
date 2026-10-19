@@ -22,7 +22,8 @@ from homeassistant.core import HomeAssistant
 
 from . import gauge as G
 from .const import (
-    DEFAULT_SETTINGS, DOMAIN, HISTORY_DAYS, LED_WARMUP_S, PREVIEW_HOLD_S, VERSION,
+    DEFAULT_SETTINGS, DOMAIN, HISTORY_DAYS, HOMEKIT_ALARM_DELAY_S, HOMEKIT_OUTAGE_S,
+    LED_WARMUP_S, PREVIEW_HOLD_S, VERSION,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,6 +33,21 @@ def deep_merge(base: dict, upd: dict) -> dict:
     out = copy.deepcopy(base)
     for k, v in (upd or {}).items():
         out[k] = deep_merge(out[k], v) if isinstance(v, dict) and isinstance(out.get(k), dict) else v
+    return out
+
+
+def homekit_eval(status: dict, now: float | None = None) -> dict:
+    """Zustände der HomeKit-Wassermelder aus dem Status berechnen (ohne Home-Assistant-Abhängigkeit)."""
+    now = now or time.time()
+    hk = status.get("homekit") or {}
+    last = status.get("last") or {}
+    out = {}
+    for kind in ("low", "high"):
+        since = hk.get(f"{kind}_since")
+        out[kind] = bool(since is not None and now - since >= HOMEKIT_ALARM_DELAY_S)
+    t = last.get("value_time")
+    max_age = max(HOMEKIT_OUTAGE_S, 3 * float(status.get("interval_min") or 5) * 60)
+    out["outage"] = bool(status.get("calibrated")) and (t is None or now - float(t) > max_age)
     return out
 
 
@@ -59,6 +75,8 @@ class ManometerCore:
         self.led_error = ""
         self.preview_until = 0.0
         self.listeners: list = []          # werden nach Kalibrierung/Einstellungen aufgerufen
+        self.homekit_entities: dict[str, str] = {}   # unique_id-Schlüssel → entity_id (fürs Panel)
+        self.reload_cb = None              # Integration neu laden (z. B. wenn HomeKit-Sensoren an/aus)
 
     # ------------------------------------------------------------------ Laden / Speichern
     async def async_load(self) -> None:
@@ -115,7 +133,7 @@ class ManometerCore:
         return max(1.0, float(self.settings.get("interval_min", 5))) * 60
 
     def status(self) -> dict[str, Any]:
-        return {
+        d = {
             "calibrated": self.evaluator is not None,
             "tracking": bool(self.evaluator and self.evaluator.aligner),
             "last": dict(self.last), "measuring": self.measuring,
@@ -126,7 +144,27 @@ class ManometerCore:
             "led": {"enabled": self.led_enabled, "on": self.led_on, "error": self.led_error},
             "mqtt": {"available": "mqtt" in self.hass.config.components,
                      "enabled": bool(self.settings["mqtt"].get("enabled"))},
+            "homekit": {"enabled": self.homekit_enabled,
+                        "low_since": self._streak_since("low"), "high_since": self._streak_since("high"),
+                        "delay_min": HOMEKIT_ALARM_DELAY_S // 60},
         }
+        d["homekit"]["state"] = homekit_eval(d)      # für die Anzeige im Panel
+        return d
+
+    @property
+    def homekit_enabled(self) -> bool:
+        return bool(self.settings.get("homekit", {}).get("enabled"))
+
+    def _streak_since(self, kind: str) -> float | None:
+        """Seit wann liegen die Messwerte ohne Unterbrechung unter (low) bzw. über (high) dem Normalbereich?"""
+        rng = self.settings["range"]
+        bad = (lambda v: v < rng["low"]) if kind == "low" else (lambda v: v > rng["high"])
+        since = None
+        for t, v, _ in reversed(self.history):
+            if not bad(v):
+                break
+            since = t
+        return since
 
     def history_since(self, hours: float, max_points: int = 600) -> list:
         cutoff = time.time() - hours * 3600
@@ -365,6 +403,7 @@ class ManometerCore:
         s.pop("gauge", None)
         s["camera_entity"], s["light_entity"] = self.camera_entity, self.light_entity
         s["mqtt"]["available"] = "mqtt" in self.hass.config.components
+        s.setdefault("homekit", {})["entities"] = dict(self.homekit_entities)
         return s
 
     async def async_update_settings(self, body: dict) -> None:
@@ -387,8 +426,13 @@ class ManometerCore:
         if isinstance(body.get("mqtt"), dict):
             new["mqtt"]["enabled"] = bool(body["mqtt"].get("enabled"))
             new["mqtt"]["topic_prefix"] = (str(body["mqtt"].get("topic_prefix") or "heizung/manometer")).strip().strip("/")
+        if isinstance(body.get("homekit"), dict):
+            new.setdefault("homekit", {})["enabled"] = bool(body["homekit"].get("enabled"))
+        homekit_changed = bool(new.get("homekit", {}).get("enabled")) != self.homekit_enabled
         self.settings = new
         await self.hass.async_add_executor_job(self._save_settings)
         if not self.led_enabled and self.led_on:
             self.led_on = None
         self._notify()
+        if homekit_changed and self.reload_cb:
+            self.reload_cb()                # Entitäten anlegen bzw. entfernen

@@ -102,41 +102,27 @@ Voraussetzung: Die **MQTT-Integration** ist in Home Assistant eingerichtet, z. B
 
 ## HomeKit (über die HomeKit-Bridge)
 
-HomeKit kennt keinen Drucksensor. Der Druck wird deshalb als „Temperatur“ angezeigt, und die Alarme laufen als **Wassermelder**, weil HomeKit nur dafür **kritische Mitteilungen** schickt, die auch bei „Nicht stören“ durchkommen.
+HomeKit kennt keinen Drucksensor und keine Einheit bar. Die Integration legt deshalb auf Wunsch eigene Sensoren für HomeKit an:
 
-```yaml
-template:
-  - sensor:
-      - name: "Heizungsdruck"
-        unique_id: heizungsdruck_homekit
-        device_class: temperature
-        unit_of_measurement: "°C"
-        state: "{{ states('sensor.heizung_manometer_anlagendruck') | float(0) | round(1) }}"
-        availability: "{{ has_value('sensor.heizung_manometer_anlagendruck') }}"
+1. Seitenleiste *Manometer → Einstellungen → HomeKit* → **„Sensoren für HomeKit anlegen“** anhaken → speichern.
+2. *Geräte & Dienste → HomeKit Bridge → Konfigurieren* → diese vier Entitäten freigeben → Bridge **neu laden**.
+3. In der Home-App einen eigenen Raum wie „Heizungsraum“ anlegen und die Sensoren dorthin verschieben, sonst fließt die „Temperatur“ in den Raum-Durchschnitt ein.
 
-  - binary_sensor:
-      - name: "Heizungsdruck zu niedrig"
-        unique_id: heizungsdruck_niedrig
-        device_class: moisture
-        delay_on: "00:15:00"
-        state: "{{ states('sensor.heizung_manometer_anlagendruck') | float(2) < 1.0 }}"
-        availability: "{{ has_value('sensor.heizung_manometer_anlagendruck') }}"
+| Entität | In der Home-App | Löst aus |
+|---|---|---|
+| `sensor.heizungsdruck` | Temperatursensor, 1,5 bar = 1,5 ° | – |
+| `binary_sensor.heizungsdruck_zu_niedrig` | Wassermelder | 15 Min. unter der Untergrenze des Normalbereichs |
+| `binary_sensor.heizungsdruck_zu_hoch` | Wassermelder | 15 Min. über der Obergrenze |
+| `binary_sensor.heizungsdruck_messung_ausgefallen` | Wassermelder | 1 h kein gültiger Messwert |
 
-      - name: "Heizungsdruck zu hoch"
-        unique_id: heizungsdruck_hoch
-        device_class: moisture
-        delay_on: "00:15:00"
-        state: "{{ states('sensor.heizung_manometer_anlagendruck') | float(2) > 2.5 }}"
-        availability: "{{ has_value('sensor.heizung_manometer_anlagendruck') }}"
+Wassermelder deshalb, weil HomeKit nur für sie **kritische Mitteilungen** schickt, die auch bei „Nicht stören“ durchkommen. Die Grenzen kommen aus dem **Normalbereich** in den Einstellungen.
 
-      - name: "Heizungsdruck Messung ausgefallen"
-        unique_id: heizungsdruck_ausfall
-        device_class: moisture
-        delay_on: "01:00:00"
-        state: "{{ not has_value('sensor.heizung_manometer_anlagendruck') }}"
-```
+<img src="img/homekit.png" width="300" alt="HomeKit-Einstellungen">
 
-In der **HomeKit-Bridge** nur diese vier Entitäten freigeben. In der Home-App einen eigenen Raum wie „Heizungsraum“ anlegen, sonst fließt die „Temperatur“ in den Raum-Durchschnitt ein.
+**Tipps zur HomeKit-Bridge**
+- Eine Bridge schafft höchstens **150 Geräte**. Wer ganze Domains wie `sensor` freigibt, ist schnell darüber, alles Weitere fehlt dann ohne Meldung. Besser eine eigene Bridge nur für diese vier Entitäten.
+- Hattest du vorher selbst Template-Helfer mit denselben Namen angelegt, diese löschen, sonst heißen die neuen Entitäten `…_2`.
+- Haken wieder entfernen löscht die vier Entitäten.
 
 ## Fehlersuche
 
