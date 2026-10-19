@@ -271,6 +271,7 @@ dialog::backdrop{background:rgba(0,0,0,.4)}
         <p class="small muted" style="margin:0 0 10px">HomeKit kennt keinen Drucksensor. Mit diesem Haken legt die Integration Sensoren an, die die HomeKit-Bridge versteht: den Druck als „Temperatur“ (1,5&nbsp;bar → 1,5&nbsp;°) und drei Wassermelder. Nur für Wassermelder schickt HomeKit <b>kritische Mitteilungen</b>, die auch bei „Nicht stören“ durchkommen.</p>
         <label class="row small" style="gap:8px"><input type="checkbox" name="homekit.enabled"> Sensoren für HomeKit anlegen</label>
         <div id="hkList" hidden style="margin-top:12px">
+          <label class="row small" style="gap:8px;margin-bottom:10px"><input type="checkbox" name="homekit.scale10"> Druck × 10 senden (23&nbsp;° = 2,3&nbsp;bar) – empfohlen, die Home-App rundet sonst auf halbe Grad</label>
           <table class="hk small"><tbody id="hkRows"></tbody></table>
           <p class="small muted" style="margin:10px 0 0">In der <b>HomeKit-Bridge</b> diese vier Entitäten freigeben (<i>Geräte &amp; Dienste → HomeKit Bridge → Konfigurieren</i>) und die Bridge neu laden. Die Grenzen kommen aus dem Normalbereich oben.</p>
         </div>
@@ -669,9 +670,10 @@ function showHomeKit(c, s) {
   if (!on) return;
   const v = s.last && s.last.value != null ? s.last.value : null;
   const lo = s.range.low.toLocaleString('de-DE'), hi = s.range.high.toLocaleString('de-DE'), d = (s.homekit && s.homekit.delay_min) || 15;
+  const hk10 = $('input[name="homekit.scale10"]').checked;
   const chip = (alarm) => alarm ? '<span class="chip bad">Alarm</span>' : '<span class="chip ok">OK</span>';
   const rows = [
-    ['druck', 'Heizungsdruck', 'Temperatursensor', v == null ? '<span class="muted">–</span>' : `<b>${v.toLocaleString('de-DE', {minimumFractionDigits: 1, maximumFractionDigits: 1})} °</b>`],
+    ['druck', 'Heizungsdruck', hk10 ? 'Temperatursensor · 23 ° = 2,3 bar' : 'Temperatursensor · 2,3 ° = 2,3 bar', v == null ? '<span class="muted">–</span>' : `<b>${hk10 ? Math.round(v * 10) : v.toLocaleString('de-DE', {minimumFractionDigits: 1, maximumFractionDigits: 1})} °</b>`],
     ['low', 'Heizungsdruck zu niedrig', `Wassermelder · unter ${lo} bar für ${d} Min.`, chip(st.low)],
     ['high', 'Heizungsdruck zu hoch', `Wassermelder · über ${hi} bar für ${d} Min.`, chip(st.high)],
     ['outage', 'Heizungsdruck Messung ausgefallen', 'Wassermelder · 1 h kein gültiger Wert', chip(st.outage)],

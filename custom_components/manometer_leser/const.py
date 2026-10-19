@@ -1,6 +1,6 @@
 """Konstanten für die Manometer-Leser-Integration."""
 DOMAIN = "manometer_leser"
-VERSION = "2.1.0"
+VERSION = "2.1.1"
 
 CONF_CAMERA = "camera_entity"
 CONF_LIGHT = "light_entity"
@@ -19,7 +19,7 @@ DEFAULT_SETTINGS = {
     "camera": {"led_control": True, "led_brightness": 15, "rotate": 0},
     "range": {"low": 1.0, "high": 2.5},
     "mqtt": {"enabled": False, "topic_prefix": "heizung/manometer"},
-    "homekit": {"enabled": False},
+    "homekit": {"enabled": False, "scale10": True},   # ×10: Home-App rundet °C auf halbe Grad
     "gauge": {},
 }
 

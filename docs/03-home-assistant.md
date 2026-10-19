@@ -110,10 +110,14 @@ HomeKit kennt keinen Drucksensor und keine Einheit bar. Die Integration legt des
 
 | Entität | In der Home-App | Löst aus |
 |---|---|---|
-| `sensor.heizungsdruck` | Temperatursensor, 1,5 bar = 1,5 ° | – |
+| `sensor.heizungsdruck` | Temperatursensor, **23 ° = 2,3 bar** | – |
 | `binary_sensor.heizungsdruck_zu_niedrig` | Wassermelder | 15 Min. unter der Untergrenze des Normalbereichs |
 | `binary_sensor.heizungsdruck_zu_hoch` | Wassermelder | 15 Min. über der Obergrenze |
 | `binary_sensor.heizungsdruck_messung_ausgefallen` | Wassermelder | 1 h kein gültiger Messwert |
+
+Die Entitäts-IDs können bei dir anders aussehen (z. B. mit Bereich davor), das Panel zeigt die echten.
+
+**Warum × 10?** Die Home-App zeigt Temperaturen nur in halben Grad an und macht aus 2,3 sonst 2,5. Deshalb wird der Druck standardmäßig mal 10 gesendet: 23 ° bedeutet 2,3 bar, genau auf 0,1 bar. Wer lieber 2,3 ° sehen will, nimmt den Haken „Druck × 10 senden“ heraus.
 
 Wassermelder deshalb, weil HomeKit nur für sie **kritische Mitteilungen** schickt, die auch bei „Nicht stören“ durchkommen. Die Grenzen kommen aus dem **Normalbereich** in den Einstellungen.
 

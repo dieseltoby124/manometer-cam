@@ -145,6 +145,7 @@ class ManometerCore:
             "mqtt": {"available": "mqtt" in self.hass.config.components,
                      "enabled": bool(self.settings["mqtt"].get("enabled"))},
             "homekit": {"enabled": self.homekit_enabled,
+                        "scale10": bool(self.settings.get("homekit", {}).get("scale10", True)),
                         "low_since": self._streak_since("low"), "high_since": self._streak_since("high"),
                         "delay_min": HOMEKIT_ALARM_DELAY_S // 60},
         }
@@ -428,6 +429,8 @@ class ManometerCore:
             new["mqtt"]["topic_prefix"] = (str(body["mqtt"].get("topic_prefix") or "heizung/manometer")).strip().strip("/")
         if isinstance(body.get("homekit"), dict):
             new.setdefault("homekit", {})["enabled"] = bool(body["homekit"].get("enabled"))
+            if "scale10" in body["homekit"]:
+                new["homekit"]["scale10"] = bool(body["homekit"]["scale10"])
         homekit_changed = bool(new.get("homekit", {}).get("enabled")) != self.homekit_enabled
         self.settings = new
         await self.hass.async_add_executor_job(self._save_settings)

@@ -82,7 +82,8 @@ class ManometerSensor(ManometerEntity, SensorEntity):
 class HomeKitPressureSensor(ManometerEntity, SensorEntity):
     """Der Anlagendruck als „Temperatur“: HomeKit kennt keinen Drucksensor und keine Einheit bar.
 
-    1,5 bar erscheinen in der Home-App als 1,5 °. Nur für die HomeKit-Bridge gedacht.
+    Standard: Wert × 10 (2,3 bar → 23 °), weil die Home-App Temperaturen auf halbe Grad rundet
+    und aus 2,3 sonst 2,5 macht. Abschaltbar im Panel. Nur für die HomeKit-Bridge gedacht.
     """
 
     _attr_has_entity_name = False          # kurzer Name, so wie er in der Home-App erscheinen soll
@@ -91,7 +92,6 @@ class HomeKitPressureSensor(ManometerEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_suggested_display_precision = 1
 
     def __init__(self, coordinator) -> None:
         super().__init__(coordinator, "homekit_druck")
@@ -105,10 +105,22 @@ class HomeKitPressureSensor(ManometerEntity, SensorEntity):
         return super().available and c.value_fresh(self.coordinator.data or {})
 
     @property
+    def _scale10(self) -> bool:
+        return bool(((self.coordinator.data or {}).get("homekit") or {}).get("scale10", True))
+
+    @property
+    def suggested_display_precision(self) -> int:
+        return 0 if self._scale10 else 1
+
+    @property
     def native_value(self) -> float | None:
         p = c.pressure(self.coordinator.data or {})
-        return round(p, 1) if p is not None else None
+        if p is None:
+            return None
+        return round(p * 10) if self._scale10 else round(p, 1)
 
     @property
     def extra_state_attributes(self) -> dict:
-        return {"hinweis": "Anlagendruck in bar, als Temperatur für HomeKit"}
+        p = c.pressure(self.coordinator.data or {})
+        return {"druck_bar": round(p, 2) if p is not None else None,
+                "hinweis": "23 ° = 2,3 bar (Wert × 10)" if self._scale10 else "Anlagendruck in bar, als Temperatur"}
