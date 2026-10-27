@@ -15,9 +15,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import CONF_CAMERA, CONF_LIGHT, DOMAIN, HOMEKIT_KEYS, PANEL_URL, STATIC_URL, VERSION
+from .const import CONF_CAMERA, CONF_LIGHT, DOMAIN, HOMEKIT_KEYS, NOTE_KINDS, PANEL_URL, STATIC_URL, VERSION
 from .coordinator import ManometerCoordinator
 from .core import ManometerCore
+from .gauge import CalibrationError
 from .http_api import ManometerApiView
 
 _LOGGER = logging.getLogger(__name__)
@@ -68,8 +69,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.async_on_unload(async_track_time_interval(hass, core.async_led_tick, timedelta(seconds=5)))
     entry.async_on_unload(entry.add_update_listener(_async_reload))
     await _async_setup_frontend(hass)
+    _async_register_services(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+def _async_register_services(hass: HomeAssistant) -> None:
+    """Aktion manometer_leser.add_note – z. B. für Automationen oder Siri-Kurzbefehle."""
+    if hass.services.has_service(DOMAIN, "add_note"):
+        return
+    import voluptuous as vol  # noqa: PLC0415
+    from homeassistant.exceptions import ServiceValidationError  # noqa: PLC0415
+    from homeassistant.helpers import config_validation as cv  # noqa: PLC0415
+
+    async def add_note(call) -> None:
+        entries = hass.data.get(DOMAIN, {}).get("entries", {})
+        if not entries:
+            raise ServiceValidationError("Manometer-Leser ist nicht eingerichtet")
+        d = next(iter(entries.values()))
+        when = call.data.get("time")
+        try:
+            await d["core"].async_add_note(call.data.get("kind", "nachgefuellt"), call.data.get("note", ""),
+                                           when.timestamp() if when else None)
+        except CalibrationError as err:
+            raise ServiceValidationError(str(err)) from err
+        if d["core"].evaluator is not None and not when:
+            hass.async_create_task(d["coordinator"].async_request_refresh())
+
+    hass.services.async_register(DOMAIN, "add_note", add_note, schema=vol.Schema({
+        vol.Optional("kind", default="nachgefuellt"): vol.In(list(NOTE_KINDS)),
+        vol.Optional("note", default=""): cv.string,
+        vol.Optional("time"): cv.datetime,
+    }))
 
 
 def _remove_homekit_entities(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -94,6 +125,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if not hass.data.get(DOMAIN, {}).get("entries"):
             from homeassistant.components.frontend import async_remove_panel  # noqa: PLC0415
             async_remove_panel(hass, PANEL_URL)
+            hass.services.async_remove(DOMAIN, "add_note")
     return ok
 
 

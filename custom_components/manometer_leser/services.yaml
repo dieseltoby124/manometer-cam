@@ -1,0 +1,19 @@
+add_note:
+  fields:
+    kind:
+      default: nachgefuellt
+      selector:
+        select:
+          translation_key: note_kind
+          options:
+            - nachgefuellt
+            - abgelassen
+            - entlueftet
+            - wartung
+            - sonstiges
+    note:
+      selector:
+        text:
+    time:
+      selector:
+        datetime:

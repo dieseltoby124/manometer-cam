@@ -1,6 +1,6 @@
 """Konstanten für die Manometer-Leser-Integration."""
 DOMAIN = "manometer_leser"
-VERSION = "2.1.1"
+VERSION = "2.2.0"
 
 CONF_CAMERA = "camera_entity"
 CONF_LIGHT = "light_entity"
@@ -30,3 +30,14 @@ HOMEKIT_KEYS = {                                   # unique_id-Schlüssel je Pla
     "sensor": ["homekit_druck"],
     "binary_sensor": ["homekit_zu_niedrig", "homekit_zu_hoch", "homekit_ausgefallen"],
 }
+
+# Vermerke (z. B. „Wasser nachgefüllt“)
+NOTE_KINDS = {
+    "nachgefuellt": "Wasser nachgefüllt",
+    "abgelassen": "Druck abgelassen",
+    "entlueftet": "Heizkörper entlüftet",
+    "wartung": "Wartung",
+    "sonstiges": "Sonstiges",
+}
+NOTE_EFFECT_WINDOW_S = 6 * 3600                    # Druck vorher/nachher: Messwerte bis 6 h vor bzw. nach dem Vermerk
+EVENT_NOTE = "manometer_leser_vermerk"

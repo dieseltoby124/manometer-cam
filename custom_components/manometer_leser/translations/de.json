@@ -34,5 +34,36 @@
       "camera_missing": "Bitte eine vorhandene Kamera-Entität wählen.",
       "light_missing": "Diese Licht-Entität gibt es nicht."
     }
+  },
+  "services": {
+    "add_note": {
+      "name": "Vermerk eintragen",
+      "description": "Trägt einen Vermerk in den Verlauf des Manometer-Lesers ein, z. B. dass Wasser nachgefüllt wurde. Ohne Zeitpunkt wird direkt danach gemessen.",
+      "fields": {
+        "kind": {
+          "name": "Art",
+          "description": "Was wurde gemacht?"
+        },
+        "note": {
+          "name": "Notiz",
+          "description": "Optionaler Text, z. B. „0,5 l nachgefüllt“."
+        },
+        "time": {
+          "name": "Zeitpunkt",
+          "description": "Optional, Standard: jetzt."
+        }
+      }
+    }
+  },
+  "selector": {
+    "note_kind": {
+      "options": {
+        "nachgefuellt": "Wasser nachgefüllt",
+        "abgelassen": "Druck abgelassen",
+        "entlueftet": "Heizkörper entlüftet",
+        "wartung": "Wartung",
+        "sonstiges": "Sonstiges"
+      }
+    }
   }
 }

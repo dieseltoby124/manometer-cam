@@ -17,10 +17,11 @@
     "numpy>=1.24",
     "Pillow>=10.0"
   ],
-  "version": "2.1.1",
+  "version": "2.2.0",
   "after_dependencies": [
     "mqtt",
-    "light"
+    "light",
+    "logbook"
   ],
   "single_config_entry": true
 }

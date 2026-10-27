@@ -34,5 +34,36 @@
       "camera_missing": "Please select an existing camera entity.",
       "light_missing": "This light entity does not exist."
     }
+  },
+  "services": {
+    "add_note": {
+      "name": "Add note",
+      "description": "Adds a note to the pressure history, e.g. that water was refilled. Without a time, a measurement follows right away.",
+      "fields": {
+        "kind": {
+          "name": "Kind",
+          "description": "What was done?"
+        },
+        "note": {
+          "name": "Note",
+          "description": "Optional text."
+        },
+        "time": {
+          "name": "Time",
+          "description": "Optional, default: now."
+        }
+      }
+    }
+  },
+  "selector": {
+    "note_kind": {
+      "options": {
+        "nachgefuellt": "Water refilled",
+        "abgelassen": "Pressure released",
+        "entlueftet": "Radiators bled",
+        "wartung": "Maintenance",
+        "sonstiges": "Other"
+      }
+    }
   }
 }

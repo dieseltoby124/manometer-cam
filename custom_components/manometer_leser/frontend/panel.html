@@ -7,14 +7,14 @@
 <style>
 :root{
   --bg:#f3f4f1; --card:#ffffff; --ink:#1d2321; --muted:#68716d; --line:#e1e4df;
-  --accent:#0f766e; --accent-ink:#ffffff; --accent-soft:#d9efec;
+  --accent:#0f766e; --accent-ink:#ffffff; --accent-soft:#d9efec; --water:#2563eb;
   --ok:#15803d; --ok-soft:#dcfce7; --warn:#b45309; --warn-soft:#fef3c7; --bad:#b91c1c; --bad-soft:#fee2e2;
   --band:rgba(21,128,61,.08); --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.04);
   --radius:14px;
 }
 @media (prefers-color-scheme:dark){:root{
   --bg:#121614; --card:#1b201e; --ink:#e7ebe8; --muted:#97a19c; --line:#2b322f;
-  --accent:#2dd4bf; --accent-ink:#06201c; --accent-soft:#163a35;
+  --accent:#2dd4bf; --accent-ink:#06201c; --accent-soft:#163a35; --water:#60a5fa;
   --ok:#4ade80; --ok-soft:#14321f; --warn:#fbbf24; --warn-soft:#3a2d0c; --bad:#f87171; --bad-soft:#3d1717;
   --band:rgba(74,222,128,.07); --shadow:none;
 }}
@@ -54,7 +54,15 @@ button.btn.small{padding:6px 12px;min-height:34px;font-size:14px}
 img.shot{display:block;width:100%;border-radius:10px;background:#0002}
 #chart{width:100%;height:220px;position:relative;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;cursor:crosshair}
 #chart svg{display:block;max-width:100%}
-#chart .tip{position:absolute;left:0;top:0;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:4px 8px;border-radius:6px;white-space:nowrap}
+#chart .tip{position:absolute;left:0;top:0;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:4px 8px;border-radius:6px;white-space:nowrap;max-width:260px}
+#chart .tip .nt{display:block;white-space:normal;margin-top:3px;padding-top:3px;border-top:1px solid color-mix(in srgb,var(--bg) 30%,transparent)}
+.notes{list-style:none;margin:0;padding:0}.notes li{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}.notes li:first-child{border-top:0}
+.notes .ic{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:15px;background:var(--line)}
+.notes .ic.nachgefuellt{background:color-mix(in srgb,var(--water) 18%,transparent);color:var(--water)}.notes .ic.abgelassen{background:var(--warn-soft);color:var(--warn)}
+.notes .bd{flex:1;min-width:0}.notes .t{font-weight:600}.notes .tx{font-size:13px;overflow-wrap:anywhere}.notes .del{flex:none;border:0;background:none;color:var(--muted);font-size:20px;line-height:1;padding:2px 6px;cursor:pointer;min-height:32px}
+.kinds{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.kinds label{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:6px 10px;border:1px solid var(--line);border-radius:99px;cursor:pointer}
+.kinds input{position:absolute;opacity:0;pointer-events:none}.kinds label:has(input:checked){background:var(--accent-soft);border-color:transparent;font-weight:600}
+textarea{font:inherit;width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--card);color:var(--ink);resize:vertical}
 html,body{overflow-x:hidden}
 .ax{font-size:11px;fill:var(--muted)}
 /* Kalibrierung */
@@ -151,6 +159,7 @@ dialog::backdrop{background:rgba(0,0,0,.4)}
       <div id="errBox"></div>
       <div class="row" style="margin-top:12px">
         <button class="btn" id="measureBtn">Jetzt messen</button>
+        <button class="btn" id="noteBtn">+ Vermerk</button>
         <span class="muted small" id="mqttInfo"></span>
       </div>
     </div>
@@ -164,7 +173,15 @@ dialog::backdrop{background:rgba(0,0,0,.4)}
       </div>
       <div id="chart"></div>
       <div class="legend"><span><i style="background:var(--band);outline:1px solid var(--ok)"></i>Normalbereich <span id="rangeTxt">1,0–2,5</span> bar</span>
-        <a href="#" id="rangeEdit" style="color:var(--accent)">ändern</a></div>
+        <a href="#" id="rangeEdit" style="color:var(--accent)">ändern</a>
+        <span id="noteLegend" hidden><i style="background:var(--water)"></i>Vermerk</span></div>
+    </div>
+
+    <div class="card" id="notesCard">
+      <div class="row spread"><h2 style="margin:0">Vermerke</h2><span class="small muted" id="refillInfo"></span></div>
+      <ul class="notes" id="notesList"></ul>
+      <p class="small muted" id="notesEmpty" style="margin:8px 0 0">Noch keine Vermerke. Hast du Wasser nachgefüllt oder Druck abgelassen? Mit <b>+ Vermerk</b> festhalten, dann siehst du es im Verlauf.</p>
+      <button class="btn" id="notesMore" hidden style="margin-top:8px">Alle anzeigen</button>
     </div>
 
     <div class="card">
@@ -294,6 +311,16 @@ dialog::backdrop{background:rgba(0,0,0,.4)}
     <div class="row spread"><button type="button" class="btn" onclick="this.closest('dialog').close('cancel')">Abbrechen</button><button class="btn primary" value="ok" id="valOk">Übernehmen</button></div>
   </form>
 </dialog>
+<dialog id="noteDlg">
+  <form method="dialog" id="noteForm">
+    <b>Vermerk eintragen</b>
+    <div class="kinds" id="noteKinds"></div>
+    <label class="f"><span>Zeitpunkt</span><input type="datetime-local" id="noteTime" required></label>
+    <label class="f"><span>Notiz (optional)</span><textarea id="noteText" rows="2" maxlength="300" placeholder="z. B. auf 1,8 bar aufgefüllt"></textarea></label>
+    <p class="small muted" id="noteHint" style="margin:0 0 10px">Danach wird gleich gemessen, so steht der neue Druck direkt beim Vermerk.</p>
+    <div class="row spread"><button type="button" class="btn" onclick="this.closest('dialog').close('cancel')">Abbrechen</button><button class="btn primary" value="ok">Speichern</button></div>
+  </form>
+</dialog>
 <div id="toast"></div>
 
 <script>
@@ -365,8 +392,12 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', 
 $('#measureBtn').onclick = async () => { await api('/api/measure', {}); toast('Messung gestartet'); setTimeout(refresh, 800); setTimeout(() => { refresh(); loadChart(); }, 9000); };
 $$('#range button').forEach(b => b.onclick = () => { range = +b.dataset.h; $$('#range button').forEach(x => x.setAttribute('aria-pressed', x === b)); loadChart(); });
 
-let chartData = [], chartView = null;
-async function loadChart() { try { chartData = await api('/api/history?hours=' + range); } catch { chartData = []; } drawChart(); }
+let chartData = [], chartView = null, chartNotes = [];
+async function loadChart() {
+  try { chartData = await api('/api/history?hours=' + range); } catch { chartData = []; }
+  try { const n = await api('/api/notes?hours=' + range); chartNotes = n.notes || []; } catch { chartNotes = []; }
+  drawChart(); loadNotes();
+}
 function drawChart() {
   const el = $('#chart'), W = Math.floor(el.getBoundingClientRect().width), H = 220, P = {l: 38, r: 10, t: 10, b: 24};
   chartView = null;
@@ -388,6 +419,14 @@ function drawChart() {
   for (const [t, v] of chartData) { path += (prev === null || t - prev > gap ? 'M' : 'L') + x(t).toFixed(1) + ',' + y(v).toFixed(1); prev = t; }
   g += `<path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
   const [lt, lv] = chartData[chartData.length - 1]; g += `<circle cx="${x(lt)}" cy="${y(lv)}" r="3.5" fill="var(--accent)"/>`;
+  // Vermerke als senkrechte Linie mit Punkt oben
+  for (const n of chartNotes) {
+    if (n.time < t0) continue;
+    const nx = x(n.time).toFixed(1), col = n.kind === 'nachgefuellt' ? 'var(--water)' : n.kind === 'abgelassen' ? 'var(--warn)' : 'var(--muted)';
+    g += `<line x1="${nx}" x2="${nx}" y1="${P.t + 6}" y2="${H - P.b}" stroke="${col}" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+    g += `<circle cx="${nx}" cy="${P.t + 6}" r="5" fill="${col}" stroke="var(--card)" stroke-width="2"/>`;
+  }
+  $('#noteLegend').hidden = !chartNotes.some(n => n.time >= t0);
   g += `<line id="cx" y1="${P.t}" y2="${H - P.b}" stroke="var(--muted)" stroke-dasharray="3 3" visibility="hidden"/>`;
   g += `<circle id="cdot" r="5" fill="var(--accent)" stroke="var(--card)" stroke-width="2" visibility="hidden"/></svg><div class="tip" hidden></div>`;
   el.innerHTML = g;
@@ -406,6 +445,10 @@ function chartShow(clientX) {
   cx.setAttribute('x1', bx); cx.setAttribute('x2', bx); cx.setAttribute('visibility', 'visible');
   dot.setAttribute('cx', bx); dot.setAttribute('cy', by); dot.setAttribute('visibility', 'visible');
   tip.textContent = `${fmt(best[1])} bar · ${new Date(best[0] * 1000).toLocaleString('de-DE', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}`;
+  let near = null;                                     // Vermerk in Fingernähe (12 px) mit anzeigen
+  for (const n of chartNotes) { const d = Math.abs(v.x(n.time) - px); if (d < 12 && (!near || d < near.d)) near = {n, d}; }
+  if (near) { const s = document.createElement('span'); s.className = 'nt';
+    s.textContent = `${near.n.label}, ${new Date(near.n.time * 1000).toLocaleString('de-DE', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}${near.n.text ? ' – ' + near.n.text : ''}`; tip.appendChild(s); }
   tip.hidden = false;
   const tw = tip.offsetWidth, th = tip.offsetHeight;
   const left = Math.min(Math.max(0, bx - tw / 2), v.W - tw);
@@ -694,6 +737,52 @@ form.onsubmit = async e => {
   try { await api('/api/settings', body); toast(body.homekit.enabled && !hkBefore ? 'Gespeichert – HomeKit-Sensoren werden angelegt' : 'Gespeichert'); refresh(); setTimeout(loadSettings, 1500); setTimeout(loadSettings, 5000); } catch (er) { toast(er.message); }
 };
 $('#rangeEdit').onclick = e => { e.preventDefault(); showTab('set'); setTimeout(() => { $('#rangeCard').scrollIntoView({behavior: 'smooth', block: 'start'}); $('input[name="range.low"]').focus({preventScroll: true}); }, 300); };
+
+/* ---------- Vermerke ---------- */
+const NOTE_ICON = {nachgefuellt: '💧', abgelassen: '↓', entlueftet: '≋', wartung: '🔧', sonstiges: '✎'};
+let noteKinds = {}, notesAll = [], notesShowAll = false;
+const dt = ts => new Date(ts * 1000).toLocaleString('de-DE', {day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit'});
+function daysAgo(ts) { const d = Math.floor((Date.now() / 1000 - ts) / 86400); return d <= 0 ? 'heute' : d === 1 ? 'gestern' : `vor ${d} Tagen`; }
+async function loadNotes() {
+  let r; try { r = await api('/api/notes'); } catch { return; }
+  noteKinds = r.kinds || {}; notesAll = (r.notes || []).slice().reverse();
+  const refill = notesAll.find(n => n.kind === 'nachgefuellt');
+  $('#refillInfo').textContent = refill ? `Zuletzt nachgefüllt: ${daysAgo(refill.time)}` : '';
+  const list = notesShowAll ? notesAll : notesAll.slice(0, 5);
+  $('#notesEmpty').hidden = notesAll.length > 0;
+  $('#notesMore').hidden = notesShowAll || notesAll.length <= 5;
+  $('#notesList').innerHTML = list.map(n => {
+    const eff = n.before != null && n.after != null ? `${fmt(n.before)} → ${fmt(n.after)} bar` : n.before != null ? `vorher ${fmt(n.before)} bar` : n.after != null ? `danach ${fmt(n.after)} bar` : '';
+    return `<li><span class="ic ${esc(n.kind)}">${NOTE_ICON[n.kind] || '✎'}</span><div class="bd"><div class="t">${esc(n.label)}</div>
+      <div class="small muted">${dt(n.time)}${eff ? ' · ' + eff : ''}</div>${n.text ? `<div class="tx">${esc(n.text)}</div>` : ''}</div>
+      <button class="del" data-id="${esc(n.id)}" title="Löschen" aria-label="Vermerk löschen">×</button></li>`; }).join('');
+}
+$('#notesMore').onclick = () => { notesShowAll = true; loadNotes(); };
+$('#notesList').onclick = async e => {
+  const b = e.target.closest('.del'); if (!b) return;
+  if (!confirm('Diesen Vermerk löschen?')) return;
+  try { await api('/api/notes/delete', {id: b.dataset.id}); toast('Vermerk gelöscht'); loadChart(); } catch (er) { toast(er.message); }
+};
+const localInput = d => { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+const noteIsNow = () => Math.abs(new Date($('#noteTime').value).getTime() / 1000 - Date.now() / 1000) < 900;
+$('#noteTime').oninput = () => { $('#noteHint').hidden = !noteIsNow(); };
+$('#noteBtn').onclick = async () => {
+  if (!Object.keys(noteKinds).length) await loadNotes();
+  $('#noteKinds').innerHTML = Object.entries(noteKinds).map(([k, l], i) =>
+    `<label><input type="radio" name="nk" value="${esc(k)}"${i === 0 ? ' checked' : ''}>${NOTE_ICON[k] || ''} ${esc(l)}</label>`).join('');
+  const now = new Date(); $('#noteTime').value = localInput(now); $('#noteTime').max = localInput(new Date(now.getTime() + 60000));
+  $('#noteText').value = ''; $('#noteHint').hidden = false; $('#noteDlg').returnValue = '';
+  $('#noteDlg').showModal();
+};
+$('#noteDlg').addEventListener('close', async () => {
+  if ($('#noteDlg').returnValue !== 'ok') return;
+  const kind = ($('input[name=nk]:checked') || {}).value, when = new Date($('#noteTime').value).getTime() / 1000, measure = noteIsNow();
+  try {
+    await api('/api/notes/add', {kind, text: $('#noteText').value, time: when, measure});
+    toast(measure ? 'Vermerk gespeichert – Messung läuft' : 'Vermerk gespeichert'); loadChart();
+    if (measure) setTimeout(() => { refresh(); loadChart(); }, 12000);
+  } catch (er) { toast(er.message); }
+});
 
 window.mlStart = () => { refresh(); loadChart(); setInterval(refresh, 10000); setInterval(loadChart, 120000); };
 </script>

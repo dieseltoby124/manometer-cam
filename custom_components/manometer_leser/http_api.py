@@ -8,7 +8,7 @@ from aiohttp import web
 
 from homeassistant.components.http import HomeAssistantView
 
-from .const import API_BASE, DOMAIN, HISTORY_DAYS
+from .const import API_BASE, DOMAIN, HISTORY_DAYS, NOTE_KINDS
 from .gauge import CalibrationError
 
 _LOGGER = logging.getLogger(__name__)
@@ -45,6 +45,12 @@ class ManometerApiView(HomeAssistantView):
             return self.json(core.calibration())
         if action == "settings":
             return self.json(core.public_settings())
+        if action == "notes":
+            try:
+                hours = float(request.query["hours"]) if request.query.get("hours") else None
+            except ValueError:
+                hours = None
+            return self.json({"kinds": NOTE_KINDS, "notes": core.notes_since(hours)})
         if action in ("img/last.jpg", "img/calib.jpg"):
             if action == "img/last.jpg":
                 data = core.last_jpg
@@ -82,6 +88,14 @@ class ManometerApiView(HomeAssistantView):
                 return self.json({"ok": True})
             if action == "settings":
                 await core.async_update_settings(body)
+                return self.json({"ok": True})
+            if action == "notes/add":
+                note = await core.async_add_note(body.get("kind", ""), body.get("text", ""), body.get("time"))
+                if body.get("measure") and core.evaluator is not None:   # gleich nachmessen → Druck „nachher“
+                    hass.async_create_task(coordinator.async_request_refresh())
+                return self.json(note)
+            if action == "notes/delete":
+                await core.async_delete_note(str(body.get("id", "")))
                 return self.json({"ok": True})
             return self._err("Nicht gefunden", 404)
         except CalibrationError as err:

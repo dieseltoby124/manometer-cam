@@ -13,6 +13,7 @@ import logging
 import math
 import os
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -22,8 +23,8 @@ from homeassistant.core import HomeAssistant
 
 from . import gauge as G
 from .const import (
-    DEFAULT_SETTINGS, DOMAIN, HISTORY_DAYS, HOMEKIT_ALARM_DELAY_S, HOMEKIT_OUTAGE_S,
-    LED_WARMUP_S, PREVIEW_HOLD_S, VERSION,
+    DEFAULT_SETTINGS, DOMAIN, EVENT_NOTE, HISTORY_DAYS, HOMEKIT_ALARM_DELAY_S, HOMEKIT_OUTAGE_S,
+    LED_WARMUP_S, NOTE_EFFECT_WINDOW_S, NOTE_KINDS, PREVIEW_HOLD_S, VERSION,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -61,6 +62,8 @@ class ManometerCore:
         self.p_settings = self.dir / "settings.json"
         self.p_calib, self.p_ref = self.dir / "kalibrierbild.jpg", self.dir / "referenz.jpg"
         self.p_last, self.p_hist = self.dir / "letzte_messung.jpg", self.dir / "verlauf.jsonl"
+        self.p_notes = self.dir / "vermerke.json"
+        self.notes: list[dict] = []        # {id, time, kind, text, before, after} – unbegrenzt, sind wenige
 
         self.settings: dict = copy.deepcopy(DEFAULT_SETTINGS)
         self.history: list[tuple[float, float, float]] = []
@@ -106,6 +109,11 @@ class ManometerCore:
                 except (ValueError, TypeError):
                     continue
             self.p_hist.write_text("".join(json.dumps(list(r)) + "\n" for r in self.history), "utf-8")
+        if self.p_notes.exists():
+            try:
+                self.notes = sorted(json.loads(self.p_notes.read_text("utf-8")), key=lambda n: n["time"])
+            except (OSError, ValueError, KeyError, TypeError):
+                _LOGGER.warning("vermerke.json unlesbar – Vermerke werden ignoriert")
         if self.history:
             t, v, c = self.history[-1]
             self.last = {"time": t, "value_time": t, "value": v, "confidence": c, "error": ""}
@@ -144,6 +152,9 @@ class ManometerCore:
             "led": {"enabled": self.led_enabled, "on": self.led_on, "error": self.led_error},
             "mqtt": {"available": "mqtt" in self.hass.config.components,
                      "enabled": bool(self.settings["mqtt"].get("enabled"))},
+            "notes": {"last": self.public_note(self.notes[-1]) if self.notes else None,
+                      "last_refill": self.public_note(self._last_note("nachgefuellt")),
+                      "count": len(self.notes)},
             "homekit": {"enabled": self.homekit_enabled,
                         "scale10": bool(self.settings.get("homekit", {}).get("scale10", True)),
                         "low_since": self._streak_since("low"), "high_since": self._streak_since("high"),
@@ -260,6 +271,7 @@ class ManometerCore:
             self.last = {"time": now, "value_time": now, "value": value, "confidence": conf,
                          "offset": [round(off[0], 1), round(off[1], 1)], "error": ""}
             await self._add_history(value, conf)
+            await self._fill_note_effects()
             await self._mqtt_state(value, conf)
             _LOGGER.debug("Messung: %.2f bar (Güte %.0f %%)", value, conf)
         except Exception as err:  # noqa: BLE001
@@ -283,6 +295,77 @@ class ManometerCore:
             with self.p_hist.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(list(rec)) + "\n")
         await self.hass.async_add_executor_job(write)
+
+    # ------------------------------------------------------------------ Vermerke
+    def _last_note(self, kind: str) -> dict | None:
+        return next((n for n in reversed(self.notes) if n["kind"] == kind), None)
+
+    def public_note(self, n: dict | None) -> dict | None:
+        if n is None:
+            return None
+        return {**n, "label": NOTE_KINDS.get(n["kind"], n["kind"])}
+
+    def notes_since(self, hours: float | None = None) -> list[dict]:
+        cutoff = time.time() - hours * 3600 if hours else 0
+        return [self.public_note(n) for n in self.notes if n["time"] >= cutoff]
+
+    def _effect(self, n: dict) -> bool:
+        """Druck vor und nach dem Vermerk aus dem Verlauf ergänzen. True, wenn sich etwas geändert hat."""
+        changed = False
+        t0 = n["time"]
+        if n.get("before") is None:
+            vals = [v for t, v, _ in self.history if t0 - NOTE_EFFECT_WINDOW_S <= t <= t0]
+            if vals:
+                n["before"], changed = round(vals[-1], 2), True
+        if n.get("after") is None:
+            vals = [v for t, v, _ in self.history if t0 < t <= t0 + NOTE_EFFECT_WINDOW_S]
+            if vals:
+                n["after"], changed = round(vals[0], 2), True
+        return changed
+
+    async def _fill_note_effects(self) -> None:
+        recent = [n for n in self.notes if n.get("after") is None and time.time() - n["time"] < NOTE_EFFECT_WINDOW_S + 3600]
+        if any([self._effect(n) for n in recent]):
+            await self.hass.async_add_executor_job(self._save_notes)
+
+    def _save_notes(self) -> None:
+        tmp = self.p_notes.with_suffix(".tmp")
+        tmp.write_text(json.dumps(self.notes, ensure_ascii=False, indent=1), "utf-8")
+        os.replace(tmp, self.p_notes)
+
+    async def async_add_note(self, kind: str, text: str = "", when: float | None = None) -> dict:
+        if kind not in NOTE_KINDS:
+            raise G.CalibrationError("Unbekannte Art des Vermerks")
+        now = time.time()
+        when = float(when) if when else now
+        if when > now + 300:
+            raise G.CalibrationError("Der Zeitpunkt liegt in der Zukunft")
+        if when < now - 365 * 86400:
+            raise G.CalibrationError("Der Zeitpunkt liegt mehr als ein Jahr zurück")
+        n = {"id": uuid.uuid4().hex[:10], "time": round(when), "kind": kind, "text": str(text or "").strip()[:300],
+             "before": None, "after": None}
+        self._effect(n)
+        self.notes.append(n)
+        self.notes.sort(key=lambda x: x["time"])
+        await self.hass.async_add_executor_job(self._save_notes)
+        pub = self.public_note(n)
+        self.hass.bus.async_fire(EVENT_NOTE, {k: pub[k] for k in ("id", "time", "kind", "label", "text", "before")})
+        try:
+            from homeassistant.components.logbook import async_log_entry  # noqa: PLC0415
+            async_log_entry(self.hass, "Heizung Manometer", f"Vermerk: {pub['label']}"
+                            + (f" – {pub['text']}" if pub["text"] else ""), DOMAIN)
+        except Exception:  # noqa: BLE001 – Logbuch ist nur nett, nicht nötig
+            pass
+        self._notify()
+        return pub
+
+    async def async_delete_note(self, note_id: str) -> None:
+        before = len(self.notes)
+        self.notes = [n for n in self.notes if n["id"] != note_id]
+        if len(self.notes) == before:
+            raise G.CalibrationError("Vermerk nicht gefunden")
+        await self.hass.async_add_executor_job(self._save_notes)
+        self._notify()
 
     # ------------------------------------------------------------------ MQTT (über die MQTT-Integration von HA)
     async def _publish(self, items: list[tuple[str, str]]) -> None:

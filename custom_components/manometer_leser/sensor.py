@@ -26,10 +26,26 @@ def _timestamp(data: dict):
     return dt_util.utc_from_timestamp(float(t)) if t else None
 
 
+def _note_time(data: dict, key: str):
+    n = (data.get("notes") or {}).get(key)
+    return dt_util.utc_from_timestamp(float(n["time"])) if n else None
+
+
+def _note_attrs(data: dict, key: str, with_time: bool = False) -> dict:
+    n = (data.get("notes") or {}).get(key)
+    if not n:
+        return {}
+    out = {"notiz": n.get("text") or None, "druck_vorher_bar": n.get("before"), "druck_nachher_bar": n.get("after")}
+    if with_time:
+        out["zeitpunkt"] = dt_util.utc_from_timestamp(float(n["time"])).isoformat()
+    return out
+
+
 @dataclass(frozen=True, kw_only=True)
 class ManometerSensorDescription(SensorEntityDescription):
     value_fn: Callable[[dict], Any]
     available_fn: Callable[[dict], bool] = lambda d: True
+    attrs_fn: Callable[[dict], dict] | None = None
 
 
 SENSORS: tuple[ManometerSensorDescription, ...] = (
@@ -38,6 +54,16 @@ SENSORS: tuple[ManometerSensorDescription, ...] = (
         device_class=SensorDeviceClass.PRESSURE, native_unit_of_measurement=UnitOfPressure.BAR,
         state_class=SensorStateClass.MEASUREMENT, suggested_display_precision=2,
         value_fn=c.pressure, available_fn=c.value_fresh,
+    ),
+    ManometerSensorDescription(
+        key="zuletzt_nachgefuellt", name="Zuletzt Wasser nachgefüllt", icon="mdi:water-plus",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda d: _note_time(d, "last_refill"), attrs_fn=lambda d: _note_attrs(d, "last_refill"),
+    ),
+    ManometerSensorDescription(
+        key="letzter_vermerk", name="Letzter Vermerk", icon="mdi:note-text-outline",
+        value_fn=lambda d: ((d.get("notes") or {}).get("last") or {}).get("label"),
+        attrs_fn=lambda d: _note_attrs(d, "last", with_time=True),
     ),
     ManometerSensorDescription(
         key="guete", name="Erkennungsgüte", icon="mdi:eye-check-outline",
@@ -77,6 +103,11 @@ class ManometerSensor(ManometerEntity, SensorEntity):
     @property
     def native_value(self):
         return self.entity_description.value_fn(self.coordinator.data or {})
+
+    @property
+    def extra_state_attributes(self) -> dict | None:
+        fn = self.entity_description.attrs_fn
+        return fn(self.coordinator.data or {}) if fn else None
 
 
 class HomeKitPressureSensor(ManometerEntity, SensorEntity):
