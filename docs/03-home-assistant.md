@@ -46,10 +46,37 @@ Gespeichert wird alles unter `/config/manometer_leser/` und ist damit in den Hom
 | Anlagendruck (bar) | `sensor.heizung_manometer_anlagendruck` |
 | Druck außerhalb Normalbereich (Problem) | `binary_sensor.heizung_manometer_druck_ausserhalb_normalbereich` |
 | Jetzt messen | `button.heizung_manometer_jetzt_messen` |
+| Wasser nachgefüllt (Knopf, trägt einen Vermerk ein) | `button.heizung_manometer_wasser_nachgefullt` |
+| Zuletzt Wasser nachgefüllt (Zeitpunkt, Druck vorher/nachher) | `sensor.heizung_manometer_zuletzt_wasser_nachgefullt` |
+| Letzter Vermerk | `sensor.heizung_manometer_letzter_vermerk` |
 | Letztes Bild (mit erkanntem Zeiger) | `camera.heizung_manometer_letztes_bild` |
 | Erkennungsgüte, Letzte Messung, Letzter Fehler, Messung gestört | Diagnose |
 
 Die IDs können bei dir leicht abweichen, sie stehen beim Gerät. Der **Anlagendruck** wird „nicht verfügbar“, wenn länger als 3 Messintervalle kein gültiger Wert kam.
+
+## Vermerke
+
+Hast du Wasser nachgefüllt, Druck abgelassen oder die Heizkörper entlüftet, halte es fest: In der Seitenleiste *Manometer → Übersicht* auf **+ Vermerk**, Art wählen, bei Bedarf Zeitpunkt anpassen und eine Notiz eintragen.
+
+- Der Vermerk erscheint als **gestrichelte Linie im Verlauf**. Darüberfahren zeigt die Notiz.
+- In der Liste steht der **Druck vorher → nachher**, aus den Messungen direkt davor und danach.
+- Ist der Zeitpunkt „jetzt“, wird gleich nachgemessen. Wenn du erst später einträgst, stell den Zeitpunkt auf das Nachfüllen zurück, sonst stimmt „vorher“ nicht.
+- Vermerke bleiben dauerhaft, auch wenn der Verlauf nach 30 Tagen gelöscht wird. Mit × entfernst du einen Vermerk.
+
+<img src="img/vermerke.png" width="300" alt="Vermerke im Verlauf">
+
+**Aus Home Assistant heraus:**
+- Knopf **„Wasser nachgefüllt“** beim Gerät, z. B. auf dem Dashboard. Über die HomeKit-Bridge freigegeben, erscheint er in der Home-App als Schalter.
+- Aktion `manometer_leser.add_note` für Automationen und Skripte:
+  ```yaml
+  action: manometer_leser.add_note
+  data:
+    kind: nachgefuellt        # abgelassen, entlueftet, wartung, sonstiges
+    note: "0,5 l nachgefüllt"
+  ```
+- Jeder Vermerk erscheint im **Logbuch** und löst das Ereignis `manometer_leser_vermerk` aus.
+
+**Wie oft wird nachgefüllt?** Mit dem Sensor „Zuletzt Wasser nachgefüllt“ lässt sich z. B. melden, wenn der Druck schon wenige Wochen nach dem letzten Nachfüllen wieder unter der Untergrenze liegt. Häufiges Nachfüllen deutet auf ein Leck oder ein defektes Ausdehnungsgefäß hin.
 
 ## Benachrichtigungen
 
