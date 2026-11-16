@@ -94,6 +94,23 @@ one_wire:
   - platform: gpio
     pin: GPIO13
 
+# --- Optional: Brenner-Status über die Betriebs-LED der Therme ---
+# LDR-Modul mit Komparator (LM393, Ausgang „DO“) auf die LED setzen und gegen Raumlicht abschirmen.
+# Verdrahtung: VCC → 3V3, GND → GND, DO → GPIO14. Schaltschwelle am Poti einstellen.
+# Ohne Modul unschädlich: der interne Pull-up hält den Eingang auf „aus“.
+binary_sensor:
+  - platform: gpio
+    id: brenner
+    name: Brenner
+    device_class: running
+    pin:
+      number: GPIO14
+      mode: INPUT_PULLUP
+      inverted: true          # LM393-Module ziehen DO bei Licht auf LOW
+    filters:
+      - delayed_on: 2s        # kurzes Flackern ignorieren
+      - delayed_off: 5s
+
 sensor:
   # Adressen nach dem ersten Flashen aus dem Log übernehmen („Found 1-Wire devices: 0x…“).
   # Zuordnung: Rohr anfassen bzw. Heizung anspringen lassen – der Vorlauf wird zuerst warm.

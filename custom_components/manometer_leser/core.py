@@ -12,7 +12,9 @@ import json
 import logging
 import math
 import os
+import re
 import time
+from datetime import timedelta
 import uuid
 from pathlib import Path
 from typing import Any
@@ -23,17 +25,70 @@ from homeassistant.core import HomeAssistant
 
 from . import gauge as G
 from .const import (
-    DEFAULT_SETTINGS, DOMAIN, EVENT_NOTE, HISTORY_DAYS, HOMEKIT_ALARM_DELAY_S, HOMEKIT_OUTAGE_S,
-    LED_WARMUP_S, NOTE_EFFECT_WINDOW_S, NOTE_KINDS, PREVIEW_HOLD_S, VERSION,
+    BURNER_KEY, DEFAULT_SETTINGS, DOMAIN, EVENT_NOTE, HISTORY_DAYS, HOMEKIT_ALARM_DELAY_S, HOMEKIT_OUTAGE_S,
+    LED_WARMUP_S, NOTE_EFFECT_WINDOW_S, NOTE_KINDS, PREVIEW_HOLD_S, TEMP_HISTORY_POINTS, TEMP_KEYS, VERSION,
 )
 
 _LOGGER = logging.getLogger(__name__)
+ENTITY_RE = re.compile(r"^[a-z_]+\.[a-z0-9_]+$")
 
 
 def deep_merge(base: dict, upd: dict) -> dict:
     out = copy.deepcopy(base)
     for k, v in (upd or {}).items():
         out[k] = deep_merge(out[k], v) if isinstance(v, dict) and isinstance(out.get(k), dict) else v
+    return out
+
+
+def _num(state) -> float | None:
+    try:
+        v = float(state)
+    except (TypeError, ValueError):
+        return None
+    return v if math.isfinite(v) else None
+
+
+def _row_time(row: dict) -> float | None:
+    """Zeitstempel einer Zeile im kompakten Recorder-Format („lu“ fehlt, wenn gleich „lc“)."""
+    t = row.get("lu", row.get("lc"))
+    return float(t) if t is not None else None
+
+
+def series_from_rows(rows: list[dict], t0: float, now: float, points: int = TEMP_HISTORY_POINTS) -> list[list[float]]:
+    """Zahlenwerte aus dem Recorder-Verlauf, auf höchstens `points` Mittelwerte verdichtet."""
+    raw = []
+    for r in rows or []:
+        t, v = _row_time(r), _num(r.get("s"))
+        if t is None or v is None:
+            continue
+        raw.append((max(t, t0), v))
+    if len(raw) <= points:
+        return [[round(t, 1), round(v, 2)] for t, v in raw]
+    width = max(1.0, (now - t0) / points)
+    buckets: dict[int, list] = {}
+    for t, v in raw:
+        b = buckets.setdefault(int((t - t0) // width), [0.0, 0.0, 0])
+        b[0] += t; b[1] += v; b[2] += 1
+    return [[round(st / n, 1), round(sv / n, 2)] for _, (st, sv, n) in sorted(buckets.items())]
+
+
+def intervals_from_rows(rows: list[dict], t0: float, now: float) -> list[list[float]]:
+    """Zeiträume [an, aus], in denen eine Ein/Aus-Entität „on“ war."""
+    out, start = [], None
+    for r in rows or []:
+        t = _row_time(r)
+        if t is None:
+            continue
+        t = max(t, t0)
+        if r.get("s") == "on":
+            if start is None:
+                start = t
+        elif start is not None:
+            if t > start:
+                out.append([round(start, 1), round(t, 1)])
+            start = None
+    if start is not None and now > start:
+        out.append([round(start, 1), round(now, 1)])
     return out
 
 
@@ -161,7 +216,71 @@ class ManometerCore:
                         "delay_min": HOMEKIT_ALARM_DELAY_S // 60},
         }
         d["homekit"]["state"] = homekit_eval(d)      # für die Anzeige im Panel
+        d["temps"] = self.temps_now()
         return d
+
+    # ------------------------------------------------------------------ Vorlauf/Rücklauf/Brenner
+    def temps_now(self) -> dict[str, Any]:
+        """Aktuelle Werte der ausgewählten Fremd-Entitäten (Temperaturfühler, Brenner)."""
+        cfg, out = self.settings.get("temps") or {}, {}
+        for key in TEMP_KEYS:
+            eid = cfg.get(key)
+            if not eid:
+                continue
+            st = self.hass.states.get(eid)
+            out[key] = {"entity_id": eid, "value": _num(st.state) if st else None,
+                        "unit": (st.attributes.get("unit_of_measurement") if st else None) or "°C",
+                        "missing": st is None}
+        eid = cfg.get(BURNER_KEY)
+        if eid:
+            st = self.hass.states.get(eid)
+            known = st is not None and st.state not in ("unknown", "unavailable")
+            out[BURNER_KEY] = {"entity_id": eid, "on": (st.state == "on") if known else None,
+                               "since": st.last_changed.timestamp() if known else None, "missing": st is None}
+        return out
+
+    async def async_temps_history(self, hours: float) -> dict[str, list]:
+        """Verlauf der ausgewählten Entitäten aus dem Recorder von Home Assistant."""
+        cfg = self.settings.get("temps") or {}
+        ids = {k: cfg.get(k) for k in (*TEMP_KEYS, BURNER_KEY) if cfg.get(k)}
+        if not ids or "recorder" not in self.hass.config.components:
+            return {}
+        try:
+            from homeassistant.components.recorder import get_instance, history  # noqa: PLC0415
+            from homeassistant.util import dt as dt_util  # noqa: PLC0415
+        except ImportError:
+            return {}
+        start = dt_util.utcnow() - timedelta(hours=hours)
+
+        def work():
+            return history.get_significant_states(
+                self.hass, start, None, sorted(set(ids.values())), None,
+                include_start_time_state=True, significant_changes_only=False,
+                minimal_response=True, no_attributes=True, compressed_state_format=True)
+        try:
+            raw = await get_instance(self.hass).async_add_executor_job(work)
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("Verlauf für Vorlauf/Rücklauf nicht lesbar: %s", err)
+            return {}
+        t0, now = start.timestamp(), time.time()
+        out: dict[str, list] = {}
+        for key, eid in ids.items():
+            rows = raw.get(eid) or []
+            out[key] = intervals_from_rows(rows, t0, now) if key == BURNER_KEY else series_from_rows(rows, t0, now)
+        return out
+
+    def entity_candidates(self) -> dict[str, list[str]]:
+        """Vorschläge für die Auswahl im Panel."""
+        temp = sorted(st.entity_id for st in self.hass.states.async_all("sensor")
+                      if st.attributes.get("device_class") == "temperature"
+                      or st.attributes.get("unit_of_measurement") in ("°C", "°F"))
+        binary = sorted(st.entity_id for st in self.hass.states.async_all("binary_sensor"))
+
+        def pick(lst, *ends):
+            return next((e for e in lst for x in ends if e.endswith(x)), "")
+        return {"temp": temp, "binary": binary,
+                "suggest": {"vorlauf": pick(temp, "_vorlauf"), "ruecklauf": pick(temp, "_rucklauf", "_ruecklauf"),
+                            "brenner": pick(binary, "_brenner")}}
 
     @property
     def homekit_enabled(self) -> bool:
@@ -488,6 +607,7 @@ class ManometerCore:
         s["camera_entity"], s["light_entity"] = self.camera_entity, self.light_entity
         s["mqtt"]["available"] = "mqtt" in self.hass.config.components
         s.setdefault("homekit", {})["entities"] = dict(self.homekit_entities)
+        s["candidates"] = self.entity_candidates()
         return s
 
     async def async_update_settings(self, body: dict) -> None:
@@ -514,6 +634,14 @@ class ManometerCore:
             new.setdefault("homekit", {})["enabled"] = bool(body["homekit"].get("enabled"))
             if "scale10" in body["homekit"]:
                 new["homekit"]["scale10"] = bool(body["homekit"]["scale10"])
+        if isinstance(body.get("temps"), dict):
+            temps = {}
+            for key in (*TEMP_KEYS, BURNER_KEY):
+                eid = str(body["temps"].get(key) or "").strip().lower()
+                if eid and not ENTITY_RE.match(eid):
+                    raise G.CalibrationError(f"„{eid}“ ist keine gültige Entitäts-ID (z. B. sensor.manometer_cam_vorlauf)")
+                temps[key] = eid
+            new["temps"] = temps
         homekit_changed = bool(new.get("homekit", {}).get("enabled")) != self.homekit_enabled
         self.settings = new
         await self.hass.async_add_executor_job(self._save_settings)

@@ -10,6 +10,7 @@
   --accent:#0f766e; --accent-ink:#ffffff; --accent-soft:#d9efec; --water:#2563eb;
   --ok:#15803d; --ok-soft:#dcfce7; --warn:#b45309; --warn-soft:#fef3c7; --bad:#b91c1c; --bad-soft:#fee2e2;
   --band:rgba(21,128,61,.08); --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.04);
+  --vl:#dc2626; --rl:#7c3aed; --burn:#ea580c;
   --radius:14px;
 }
 @media (prefers-color-scheme:dark){:root{
@@ -17,6 +18,7 @@
   --accent:#2dd4bf; --accent-ink:#06201c; --accent-soft:#163a35; --water:#60a5fa;
   --ok:#4ade80; --ok-soft:#14321f; --warn:#fbbf24; --warn-soft:#3a2d0c; --bad:#f87171; --bad-soft:#3d1717;
   --band:rgba(74,222,128,.07); --shadow:none;
+  --vl:#f87171; --rl:#a78bfa; --burn:#fb923c;
 }}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);
@@ -55,6 +57,7 @@ img.shot{display:block;width:100%;border-radius:10px;background:#0002}
 #chart{width:100%;height:220px;position:relative;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;cursor:crosshair}
 #chart svg{display:block;max-width:100%}
 #chart .tip{position:absolute;left:0;top:0;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:4px 8px;border-radius:6px;white-space:nowrap;max-width:260px}
+#chart .tip .tm{display:block;opacity:.75;font-size:11px}
 #chart .tip .nt{display:block;white-space:normal;margin-top:3px;padding-top:3px;border-top:1px solid color-mix(in srgb,var(--bg) 30%,transparent)}
 .notes{list-style:none;margin:0;padding:0}.notes li{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}.notes li:first-child{border-top:0}
 .notes .ic{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:15px;background:var(--line)}
@@ -127,6 +130,13 @@ dialog::backdrop{background:rgba(0,0,0,.4)}
 .tg label:has(input:checked){background:var(--accent-soft);border-color:transparent}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.legend i.ln{width:14px;height:3px;border-radius:2px;vertical-align:3px}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+.tgrid .k{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.tgrid .k i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.tgrid .v{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin-top:2px}
+.tgrid .v small{font-size:14px;color:var(--muted);font-weight:600;margin-left:2px}
+.chip.burn{background:color-mix(in srgb,var(--burn) 18%,transparent);color:var(--burn)}
 </style>
 </head>
 <body>
@@ -164,6 +174,16 @@ dialog::backdrop{background:rgba(0,0,0,.4)}
       </div>
     </div>
 
+    <div class="card" id="tempCard" hidden>
+      <div class="row spread" style="margin-bottom:10px"><h2 style="margin:0">Heizkreis</h2><span class="chip" id="burnChip" hidden>–</span></div>
+      <div class="tgrid">
+        <div id="tVlBox"><div class="k"><i style="background:var(--vl)"></i>Vorlauf</div><div class="v" id="tVl">–</div></div>
+        <div id="tRlBox"><div class="k"><i style="background:var(--rl)"></i>Rücklauf</div><div class="v" id="tRl">–</div></div>
+        <div id="tSpBox"><div class="k">Spreizung</div><div class="v" id="tSp">–</div></div>
+      </div>
+      <div class="small muted" id="burnMeta" style="margin-top:8px"></div>
+    </div>
+
     <div class="card">
       <div class="row spread" style="margin-bottom:8px">
         <h2 style="margin:0">Verlauf</h2>
@@ -174,7 +194,10 @@ dialog::backdrop{background:rgba(0,0,0,.4)}
       <div id="chart"></div>
       <div class="legend"><span><i style="background:var(--band);outline:1px solid var(--ok)"></i>Normalbereich <span id="rangeTxt">1,0–2,5</span> bar</span>
         <a href="#" id="rangeEdit" style="color:var(--accent)">ändern</a>
-        <span id="noteLegend" hidden><i style="background:var(--water)"></i>Vermerk</span></div>
+        <span id="noteLegend" hidden><i style="background:var(--water)"></i>Vermerk</span>
+        <span id="vlLegend" hidden><i class="ln" style="background:var(--vl)"></i>Vorlauf</span>
+        <span id="rlLegend" hidden><i class="ln" style="background:var(--rl)"></i>Rücklauf</span>
+        <span id="burnLegend" hidden><i class="ln" style="background:var(--burn);height:6px;vertical-align:1px"></i>Brenner an</span></div>
     </div>
 
     <div class="card" id="notesCard">
@@ -269,6 +292,16 @@ dialog::backdrop{background:rgba(0,0,0,.4)}
           <label class="f"><span>Obergrenze (bar)</span><input name="range.high" type="number" step="0.1" min="0" max="10" inputmode="decimal"></label>
         </div>
         <p class="small muted" style="margin:0">Richtwert: 1,0–2,5 bar. Den passenden Fülldruck für deine Anlage nennt dir dein Heizungsbauer.</p>
+      </div>
+      <div class="card" id="tempSetCard">
+        <h2>Heizkreis (optional)</h2>
+        <p class="small muted" style="margin:0 0 10px">Vorlauf, Rücklauf und Brenner aus anderen Geräten, z.&nbsp;B. den Fühlern an der ESP32-CAM. Sie erscheinen dann in der Übersicht und im Verlauf neben dem Druck. Leer lassen, wenn nicht vorhanden.</p>
+        <label class="f"><span>Vorlauf (Temperatursensor)</span><input name="temps.vorlauf" list="dlTemp" placeholder="sensor.manometer_cam_vorlauf" spellcheck="false" autocapitalize="off"></label>
+        <label class="f"><span>Rücklauf (Temperatursensor)</span><input name="temps.ruecklauf" list="dlTemp" placeholder="sensor.manometer_cam_rucklauf" spellcheck="false" autocapitalize="off"></label>
+        <label class="f"><span>Brenner (Ein/Aus-Sensor)</span><input name="temps.brenner" list="dlBin" placeholder="binary_sensor.manometer_cam_brenner" spellcheck="false" autocapitalize="off"></label>
+        <datalist id="dlTemp"></datalist><datalist id="dlBin"></datalist>
+        <div class="small" id="tempHint"></div>
+        <p class="small muted" style="margin:0">Der Verlauf kommt aus der Aufzeichnung von Home Assistant (Recorder), standardmäßig 10 Tage.</p>
       </div>
       <div class="card">
         <h2>MQTT (z. B. für ioBroker)</h2>
@@ -384,22 +417,59 @@ async function refresh() {
   $('#meta').textContent = parts.join(' · ') || ' ';
   $('#errBox').innerHTML = L.error ? `<div class="banner bad">${esc(L.error)}${L.stale && L.value != null ? '<br><span class="small">Angezeigt wird der letzte gültige Wert.</span>' : ''}</div>` : '';
   $('#mqttInfo').textContent = s.mqtt && s.mqtt.enabled ? 'MQTT: an' : '';
+  showTemps(s.temps);
   if (s.has_last_image && L.time !== lastImgTime) { lastImgTime = L.time; loadImg($('#lastImg'), '/img/last.jpg'); }
   $('#lastImg').closest('.card').hidden = !s.has_last_image;
   $('#measureBtn').disabled = s.measuring || !s.calibrated;
+}
+function dur(sec) {
+  sec = Math.max(0, Math.round(sec)); const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
+  return h ? `${h} Std. ${m} Min.` : sec < 60 ? 'weniger als 1 Min.' : `${m} Min.`;
+}
+let lastTemps = {};
+function showTemps(t) {
+  t = lastTemps = t || {};
+  const has = !!(t.vorlauf || t.ruecklauf || t.brenner);
+  $('#tempCard').hidden = !has; if (!has) return;
+  const tv = o => o && o.value != null ? `${fmt(o.value, 1)}<small>${o.unit === '°F' ? '°F' : '°C'}</small>` : '<span class="muted">–</span>';
+  $('#tVlBox').hidden = !t.vorlauf; $('#tVl').innerHTML = tv(t.vorlauf);
+  $('#tRlBox').hidden = !t.ruecklauf; $('#tRl').innerHTML = tv(t.ruecklauf);
+  const sp = t.vorlauf && t.ruecklauf && t.vorlauf.value != null && t.ruecklauf.value != null ? t.vorlauf.value - t.ruecklauf.value : null;
+  $('#tSpBox').hidden = !(t.vorlauf && t.ruecklauf);
+  $('#tSp').innerHTML = sp == null ? '<span class="muted">–</span>' : `${fmt(sp, 1)}<small>K</small>`;
+  const b = t.brenner, chip = $('#burnChip');
+  chip.hidden = !b;
+  if (b) { chip.className = 'chip' + (b.on ? ' burn' : ''); chip.textContent = b.on == null ? 'Brenner: unbekannt' : b.on ? '🔥 Brenner an' : 'Brenner aus'; }
+  const miss = ['vorlauf', 'ruecklauf', 'brenner'].filter(k => t[k] && t[k].missing).map(k => t[k].entity_id);
+  const parts = [];
+  if (miss.length) parts.push(`Nicht gefunden: ${miss.join(', ')}`);
+  if (b && b.on != null && b.since) parts.push(`${b.on ? 'An' : 'Aus'} seit ${dur(Date.now() / 1000 - b.since)}`);
+  if (burnStats) parts.push(burnStats);
+  $('#burnMeta').textContent = parts.join(' · ');
 }
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 $('#measureBtn').onclick = async () => { await api('/api/measure', {}); toast('Messung gestartet'); setTimeout(refresh, 800); setTimeout(() => { refresh(); loadChart(); }, 9000); };
 $$('#range button').forEach(b => b.onclick = () => { range = +b.dataset.h; $$('#range button').forEach(x => x.setAttribute('aria-pressed', x === b)); loadChart(); });
 
-let chartData = [], chartView = null, chartNotes = [];
+let chartData = [], chartView = null, chartNotes = [], tempData = {}, burnStats = '';
+const RANGE_TXT = {24: '24 h', 168: '7 Tage', 720: '30 Tage'};
 async function loadChart() {
   try { chartData = await api('/api/history?hours=' + range); } catch { chartData = []; }
   try { const n = await api('/api/notes?hours=' + range); chartNotes = n.notes || []; } catch { chartNotes = []; }
-  drawChart(); loadNotes();
+  try { tempData = await api('/api/temps_history?hours=' + range) || {}; } catch { tempData = {}; }
+  const bi = tempData.brenner || [], t0 = Date.now() / 1000 - range * 3600;
+  burnStats = bi.length || (lastTemps && lastTemps.brenner)
+    ? `${RANGE_TXT[range] || range + ' h'}: ${dur(bi.reduce((a, [s, e]) => a + e - s, 0))} an, ${bi.filter(([s]) => s > t0 + 1).length} Starts` : '';
+  showTemps(lastTemps); drawChart(); loadNotes();
 }
+// Punkt einer Reihe, der zeitlich am nächsten liegt (nur wenn nah genug)
+function nearestPt(arr, t, maxD) { let b = null; for (const p of arr || []) if (!b || Math.abs(p[0] - t) < Math.abs(b[0] - t)) b = p; return b && Math.abs(b[0] - t) <= maxD ? b : null; }
 function drawChart() {
-  const el = $('#chart'), W = Math.floor(el.getBoundingClientRect().width), H = 220, P = {l: 38, r: 10, t: 10, b: 24};
+  const tSeries = [['vorlauf', 'var(--vl)'], ['ruecklauf', 'var(--rl)']].filter(([k]) => (tempData[k] || []).length);
+  const burn = tempData.brenner || [];
+  $('#vlLegend').hidden = !(tempData.vorlauf || []).length; $('#rlLegend').hidden = !(tempData.ruecklauf || []).length;
+  $('#burnLegend').hidden = !burn.length;
+  const el = $('#chart'), W = Math.floor(el.getBoundingClientRect().width), H = 220, P = {l: 38, r: tSeries.length ? 40 : 10, t: 10, b: 24};
   chartView = null;
   if (W < 80) return;                          // Reiter gerade nicht sichtbar -> wird beim Einblenden gezeichnet
   if (!chartData.length) { el.innerHTML = `<div class="muted small" style="padding:80px 0;text-align:center">Noch keine Messwerte im Zeitraum</div>`; return; }
@@ -414,6 +484,27 @@ function drawChart() {
   for (let i = 0; i <= ticks; i++) { const t = t0 + i * (now - t0) / ticks, d = new Date(t * 1000);
     const lab = range <= 24 ? d.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'}) : d.toLocaleDateString('de-DE', {day: '2-digit', month: '2-digit'});
     g += `<text class="ax" x="${x(t)}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : i === ticks ? 'end' : 'middle'}">${lab}</text>`; }
+  // Brenner: schmaler Balken über der Zeitachse, solange er an war
+  for (const [a, b] of burn) { if (b < t0) continue; const xa = x(Math.max(a, t0));
+    g += `<rect x="${xa.toFixed(1)}" y="${H - P.b - 7}" width="${Math.max(1.5, x(b) - xa).toFixed(1)}" height="7" fill="var(--burn)" opacity=".6"/>`; }
+  // Temperaturen auf eigener Achse rechts, dünn und unter der Drucklinie
+  let yT = null;
+  if (tSeries.length) {
+    const tv = tSeries.flatMap(([k]) => tempData[k].filter(p => p[0] >= t0).map(p => p[1]));
+    if (tv.length) {
+      let tlo = Math.floor(Math.min(...tv) / 10) * 10, thi = Math.ceil(Math.max(...tv) / 10) * 10;
+      if (thi - tlo < 20) thi = tlo + 20;
+      yT = v => P.t + (thi - v) / (thi - tlo) * (H - P.t - P.b);
+      const step = thi - tlo > 60 ? 20 : 10;
+      for (let v = tlo; v <= thi; v += step) g += `<text class="ax" x="${W - P.r + 6}" y="${yT(v) + 4}">${v}°</text>`;
+      const tgap = Math.max(1800, range * 3600 / 150);
+      for (const [k, col] of tSeries) {
+        let d = '', pv = null;
+        for (const [t, v] of tempData[k]) { if (t < t0) continue; d += (pv === null || t - pv > tgap ? 'M' : 'L') + x(t).toFixed(1) + ',' + yT(v).toFixed(1); pv = t; }
+        if (d) g += `<path d="${d}" fill="none" stroke="${col}" stroke-width="1.5" stroke-opacity=".7" stroke-linejoin="round"/>`;
+      }
+    }
+  }
   // Linie mit Lücken, wenn länger als 3 Messintervalle nichts kam
   let path = '', prev = null; const gap = Math.max(1800, range * 3600 / 200);
   for (const [t, v] of chartData) { path += (prev === null || t - prev > gap ? 'M' : 'L') + x(t).toFixed(1) + ',' + y(v).toFixed(1); prev = t; }
@@ -444,7 +535,13 @@ function chartShow(clientX) {
   const cx = el.querySelector('#cx'), dot = el.querySelector('#cdot'), tip = el.querySelector('.tip');
   cx.setAttribute('x1', bx); cx.setAttribute('x2', bx); cx.setAttribute('visibility', 'visible');
   dot.setAttribute('cx', bx); dot.setAttribute('cy', by); dot.setAttribute('visibility', 'visible');
-  tip.textContent = `${fmt(best[1])} bar · ${new Date(best[0] * 1000).toLocaleString('de-DE', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}`;
+  const maxD = Math.max(900, (v.now - v.t0) / 150), extra = [];
+  const pvl = nearestPt(tempData.vorlauf, best[0], maxD), prl = nearestPt(tempData.ruecklauf, best[0], maxD);
+  if (pvl) extra.push(`VL ${fmt(pvl[1], 1)}°`); if (prl) extra.push(`RL ${fmt(prl[1], 1)}°`);
+  if ((tempData.brenner || []).some(([a, b]) => best[0] >= a && best[0] <= b)) extra.push('🔥');
+  const when = new Date(best[0] * 1000).toLocaleString('de-DE', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'});
+  if (extra.length) { tip.textContent = `${fmt(best[1])} bar · ${extra.join(' · ')}`; const tm = document.createElement('span'); tm.className = 'tm'; tm.textContent = when; tip.appendChild(tm); }
+  else tip.textContent = `${fmt(best[1])} bar · ${when}`;
   let near = null;                                     // Vermerk in Fingernähe (12 px) mit anzeigen
   for (const n of chartNotes) { const d = Math.abs(v.x(n.time) - px); if (d < 12 && (!near || d < near.d)) near = {n, d}; }
   if (near) { const s = document.createElement('span'); s.className = 'nt';
@@ -704,6 +801,12 @@ async function loadSettings() {
   $('#ledState').innerHTML = s.led && s.led.error ? `<span class="chip bad">${esc(s.led.error)}</span>` : '';
   $('#mqttHint').innerHTML = c.mqtt.available ? '' : '<span class="chip warn">In Home Assistant ist keine MQTT-Integration eingerichtet</span>';
   $('#curVersion').textContent = s.version || '–';
+  const cand = c.candidates || {}, sug = cand.suggest || {};
+  $('#dlTemp').innerHTML = (cand.temp || []).map(e => `<option value="${esc(e)}">`).join('');
+  $('#dlBin').innerHTML = (cand.binary || []).map(e => `<option value="${esc(e)}">`).join('');
+  const tf = k => form.elements.namedItem('temps.' + k), keys = ['vorlauf', 'ruecklauf', 'brenner'];
+  const filled = keys.every(k => !tf(k).value) ? keys.filter(k => sug[k] && (tf(k).value = sug[k])) : [];
+  $('#tempHint').innerHTML = filled.length ? '<div class="banner info" style="margin:0 0 10px">Passende Sensoren gefunden und eingetragen. Zum Übernehmen unten „Einstellungen speichern“.</div>' : '';
   showHomeKit(c, s);
 }
 function showHomeKit(c, s) {
@@ -727,14 +830,14 @@ function showHomeKit(c, s) {
 $('input[name="homekit.enabled"]').addEventListener('change', e => { $('#hkList').hidden = !e.target.checked; });
 form.onsubmit = async e => {
   e.preventDefault();
-  const body = {camera: {}, range: {}, mqtt: {}, homekit: {}};
+  const body = {camera: {}, range: {}, mqtt: {}, homekit: {}, temps: {}};
   for (const el of form.elements) {
     if (!el.name) continue;
     const [a, b] = el.name.split('.'), v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value.trim();
     if (b) body[a][b] = v; else body[a] = v;
   }
   const hkBefore = form.dataset.hk === '1';
-  try { await api('/api/settings', body); toast(body.homekit.enabled && !hkBefore ? 'Gespeichert – HomeKit-Sensoren werden angelegt' : 'Gespeichert'); refresh(); setTimeout(loadSettings, 1500); setTimeout(loadSettings, 5000); } catch (er) { toast(er.message); }
+  try { await api('/api/settings', body); toast(body.homekit.enabled && !hkBefore ? 'Gespeichert – HomeKit-Sensoren werden angelegt' : 'Gespeichert'); $('#tempHint').innerHTML = ''; refresh(); loadChart(); setTimeout(loadSettings, 1500); setTimeout(loadSettings, 5000); } catch (er) { toast(er.message); }
 };
 $('#rangeEdit').onclick = e => { e.preventDefault(); showTab('set'); setTimeout(() => { $('#rangeCard').scrollIntoView({behavior: 'smooth', block: 'start'}); $('input[name="range.low"]').focus({preventScroll: true}); }, 300); };
 

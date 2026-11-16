@@ -1,6 +1,6 @@
 """Konstanten für die Manometer-Leser-Integration."""
 DOMAIN = "manometer_leser"
-VERSION = "2.2.0"
+VERSION = "2.3.0"
 
 CONF_CAMERA = "camera_entity"
 CONF_LIGHT = "light_entity"
@@ -21,7 +21,12 @@ DEFAULT_SETTINGS = {
     "mqtt": {"enabled": False, "topic_prefix": "heizung/manometer"},
     "homekit": {"enabled": False, "scale10": True},   # ×10: Home-App rundet °C auf halbe Grad
     "gauge": {},
+    # optionale fremde Entitäten, die im Panel neben dem Druck angezeigt werden (z. B. aus ESPHome)
+    "temps": {"vorlauf": "", "ruecklauf": "", "brenner": ""},
 }
+TEMP_KEYS = ("vorlauf", "ruecklauf")               # Temperaturfühler (numerisch)
+BURNER_KEY = "brenner"                             # Brenner-Status (an/aus)
+TEMP_HISTORY_POINTS = 400                          # so viele Punkte je Fühler höchstens ans Panel
 
 # HomeKit-Sensoren (Druck als „Temperatur“, Alarme als Wassermelder)
 HOMEKIT_ALARM_DELAY_S = 15 * 60                    # Druck so lange außerhalb, bevor der Wassermelder auslöst

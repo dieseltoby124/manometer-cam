@@ -48,6 +48,22 @@ Steckt die Kamera direkt am Rechner, auf dem ESPHome läuft, geht auch **Install
 - Steht das Bild durch die Einbaulage schief oder auf dem Kopf, drehst du es beim Kalibrieren (↺ / ↻).
 - Die LED ist normalerweise aus und geht nur während einer Messung kurz an. Spiegelt das Glas, die LED-Helligkeit in den Einstellungen (Seitenleiste „Manometer“) reduzieren oder die Kamera minimal schräg stellen.
 
+## Optional: Vorlauf, Rücklauf und Brenner
+
+Die Vorlage enthält zwei **DS18B20**-Temperaturfühler und einen **Brenner-Sensor**. Ohne die Bauteile schaden die Einträge nicht.
+
+| Bauteil | Anschluss an der ESP32-CAM |
+|---|---|
+| DS18B20 Vorlauf und Rücklauf (parallel) | Rot → **3V3**, Schwarz → **GND**, Gelb (Daten) → **GPIO13** |
+| Pull-up-Widerstand 4,7 kΩ | zwischen **3V3** und **GPIO13** (entfällt bei Adaptermodulen mit eingebautem Widerstand) |
+| LDR-Modul mit Komparator (LM393) auf der Brenner-LED | VCC → **3V3**, GND → **GND**, DO → **GPIO14** |
+
+- **3V3** verwenden, nicht VCC (führt je nach Board 5 V).
+- GPIO13 und GPIO14 sind frei, solange keine SD-Karte genutzt wird. Die analogen Pins der ESP32-CAM gehen bei aktivem WLAN nicht, deshalb ein LDR-Modul mit digitalem Ausgang.
+- Fühler mit Wärmeleitpaste direkt unter der Therme an die Rohre legen und isolieren. LDR mit schwarzem Klebeband gegen Raumlicht abschirmen, Schaltschwelle am Poti einstellen.
+- Nach dem ersten Flashen die Adressen aus dem Log („Found 1-Wire devices: 0x…“) statt der Nullen eintragen und erneut flashen. Zuordnung: Der Vorlauf wird beim Brennerstart zuerst warm.
+- Anzeige im Panel: [03-home-assistant.md](03-home-assistant.md#heizkreis-vorlauf-rücklauf-brenner-optional)
+
 ## Wichtige Details der Konfiguration
 
 | Teil | Warum |

@@ -54,6 +54,17 @@ Gespeichert wird alles unter `/config/manometer_leser/` und ist damit in den Hom
 
 Die IDs können bei dir leicht abweichen, sie stehen beim Gerät. Der **Anlagendruck** wird „nicht verfügbar“, wenn länger als 3 Messintervalle kein gültiger Wert kam.
 
+## Heizkreis: Vorlauf, Rücklauf, Brenner (optional)
+
+Die Seitenleiste kann Temperaturfühler und den Brenner-Status aus anderen Geräten neben dem Druck anzeigen, z. B. die DS18B20-Fühler und den LED-Sensor an der ESP32-CAM (Verdrahtung: [01-esp32-cam.md](01-esp32-cam.md#optional-vorlauf-rücklauf-und-brenner)).
+
+1. *Manometer → Einstellungen → Heizkreis*: Entitäten für **Vorlauf**, **Rücklauf** und **Brenner** eintragen. Heißen sie wie in der Vorlage (`sensor.manometer_cam_vorlauf`, `sensor.manometer_cam_rucklauf`, `binary_sensor.manometer_cam_brenner`), trägt das Panel sie beim ersten Öffnen selbst ein.
+2. **Einstellungen speichern.**
+
+Danach zeigt die Übersicht die Karte **Heizkreis** mit Vorlauf, Rücklauf, Spreizung, Brenner an/aus sowie Laufzeit und Starts im gewählten Zeitraum. Im **Verlauf** erscheinen die Temperaturen als dünne Linien mit eigener Achse rechts, der Brenner als Balken über der Zeitachse. So sieht man direkt, ob ein Druckanstieg nur von der Wärme kommt.
+
+Die Werte kommen aus der Aufzeichnung von Home Assistant (Recorder, standardmäßig 10 Tage). Die Integration speichert sie nicht selbst.
+
 ## Vermerke
 
 Hast du Wasser nachgefüllt, Druck abgelassen oder die Heizkörper entlüftet, halte es fest: In der Seitenleiste *Manometer → Übersicht* auf **+ Vermerk**, Art wählen, bei Bedarf Zeitpunkt anpassen und eine Notiz eintragen.

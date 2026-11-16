@@ -41,6 +41,12 @@ class ManometerApiView(HomeAssistantView):
             except ValueError:
                 hours = 24
             return self.json(core.history_since(min(hours, HISTORY_DAYS * 24)))
+        if action == "temps_history":
+            try:
+                hours = float(request.query.get("hours", "24"))
+            except ValueError:
+                hours = 24
+            return self.json(await core.async_temps_history(min(max(hours, 1), HISTORY_DAYS * 24)))
         if action == "calibration":
             return self.json(core.calibration())
         if action == "settings":

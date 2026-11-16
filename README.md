@@ -46,6 +46,7 @@ Details, Automationen und HomeKit: [docs/03-home-assistant.md](docs/03-home-assi
 - **LED nur während der Messung** an, gesteuert über Home Assistant
 - **Entitäten:** Anlagendruck, Problem-Sensor „Druck außerhalb Normalbereich“, Kamerabild mit erkanntem Zeiger, Knopf „Jetzt messen“, Diagnosewerte
 - **Verlauf** über 24 h, 7 und 30 Tage mit einstellbarem Normalbereich
+- **Heizkreis (optional):** Vorlauf, Rücklauf, Spreizung und Brenner-Status in Übersicht und Verlauf, z. B. von DS18B20-Fühlern und einem LED-Sensor an der ESP32-CAM
 - **Vermerke** wie „Wasser nachgefüllt“ mit Druck vorher/nachher, als Markierung im Verlauf
 - **HomeKit** mit einem Haken: Druck als „Temperatur“, Alarme als Wassermelder mit kritischer Mitteilung
 - **MQTT** (optional, über die MQTT-Integration von Home Assistant) für ioBroker & Co.
