@@ -61,7 +61,8 @@ Die Vorlage enthält zwei **DS18B20**-Temperaturfühler und einen **Brenner-Sens
 - **3V3** verwenden, nicht VCC (führt je nach Board 5 V).
 - GPIO13 und GPIO14 sind frei, solange keine SD-Karte genutzt wird. Die analogen Pins der ESP32-CAM gehen bei aktivem WLAN nicht, deshalb ein LDR-Modul mit digitalem Ausgang.
 - Fühler mit Wärmeleitpaste direkt unter der Therme an die Rohre legen und isolieren. LDR mit schwarzem Klebeband gegen Raumlicht abschirmen, Schaltschwelle am Poti einstellen.
-- Nach dem ersten Flashen die Adressen aus dem Log („Found 1-Wire devices: 0x…“) statt der Nullen eintragen und erneut flashen. Zuordnung: Der Vorlauf wird beim Brennerstart zuerst warm.
+- Die Fühler werden über ihre Reihenfolge angesprochen (`index: 0` und `index: 1`), Adressen sind nicht nötig. Sind Vorlauf und Rücklauf vertauscht (der Vorlauf wird beim Brennerstart zuerst warm), die beiden Zahlen tauschen.
+- Log-Meldung `Found no devices!`: Verdrahtung oder Pull-up-Widerstand prüfen. `Index 1 out of range, only 1 devices found`: ein Fühler wird nicht erkannt.
 - Anzeige im Panel: [03-home-assistant.md](03-home-assistant.md#heizkreis-vorlauf-rücklauf-brenner-optional)
 
 ## Wichtige Details der Konfiguration

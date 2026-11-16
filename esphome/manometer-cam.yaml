@@ -112,17 +112,18 @@ binary_sensor:
       - delayed_off: 5s
 
 sensor:
-  # Adressen nach dem ersten Flashen aus dem Log übernehmen („Found 1-Wire devices: 0x…“).
-  # Zuordnung: Rohr anfassen bzw. Heizung anspringen lassen – der Vorlauf wird zuerst warm.
+  # Fühler werden über ihre Reihenfolge am Bus angesprochen (index 0 und 1), keine Adressen nötig.
+  # Vertauscht? Beim Brennerstart wird der Vorlauf zuerst warm – sonst einfach 0 und 1 tauschen.
+  # Wird nur ein Fühler gefunden, meldet das Log „Index 1 out of range, only 1 devices found“.
   - platform: dallas_temp
     id: t_vorlauf
     name: Vorlauf
-    address: 0x0000000000000000
+    index: 0
     update_interval: 30s
   - platform: dallas_temp
     id: t_ruecklauf
     name: Rücklauf
-    address: 0x0000000000000000
+    index: 1
     update_interval: 30s
   # Spreizung Vorlauf − Rücklauf
   - platform: template
