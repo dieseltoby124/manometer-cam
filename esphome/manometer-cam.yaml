@@ -86,7 +86,39 @@ light:
     restore_mode: ALWAYS_OFF   # nach Neustart aus; wird nur zur Messung eingeschaltet
     default_transition_length: 0s
 
+# --- Optional: Temperaturfühler Vorlauf/Rücklauf (DS18B20) ---
+# Verdrahtung: alle Fühler parallel an GPIO13 (frei, solange keine SD-Karte genutzt wird),
+# Versorgung 3V3 + GND, ein 4,7-kΩ-Widerstand zwischen 3V3 und GPIO13 (oder Adaptermodul mit Pull-up).
+# Ohne Fühler diesen Block und die dallas_temp-/template-Sensoren unten auskommentieren.
+one_wire:
+  - platform: gpio
+    pin: GPIO13
+
 sensor:
+  # Adressen nach dem ersten Flashen aus dem Log übernehmen („Found 1-Wire devices: 0x…“).
+  # Zuordnung: Rohr anfassen bzw. Heizung anspringen lassen – der Vorlauf wird zuerst warm.
+  - platform: dallas_temp
+    id: t_vorlauf
+    name: Vorlauf
+    address: 0x0000000000000000
+    update_interval: 30s
+  - platform: dallas_temp
+    id: t_ruecklauf
+    name: Rücklauf
+    address: 0x0000000000000000
+    update_interval: 30s
+  # Spreizung Vorlauf − Rücklauf
+  - platform: template
+    name: Spreizung
+    unit_of_measurement: "K"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    update_interval: 30s
+    lambda: |-
+      if (isnan(id(t_vorlauf).state) || isnan(id(t_ruecklauf).state)) return NAN;
+      return id(t_vorlauf).state - id(t_ruecklauf).state;
+
   - platform: wifi_signal
     name: WLAN Signal
     update_interval: 120s
